@@ -39,24 +39,28 @@ pub fn build(b: *std.Build) void {
     exe.linkSystemLibrary("SDL3_image");
     exe.linkSystemLibrary("SDL3_ttf");
 
+    if (target_os == .windows) {
+        exe.linkSystemLibrary("opengl32");
+    } else {
+        exe.linkSystemLibrary("GL");
+    }
+
     //TODO: Add the dlls and uncomment the code below
     if (target_os == .windows) {
-        // if (optimize != .Debug) {
-        //     exe.subsystem = .Windows;
-        // }
-        // exe.addLibraryPath(.{ .cwd_relative = "thirdparty/SDL3_3.2.14-win32-x64/" });
-        // exe.addLibraryPath(.{ .cwd_relative = "thirdparty/SDL3_ttf-3.2.2-win32-x64/" });
-        // const sdl_dll_dep = b.addInstallBinFile(
-        //     b.path("thirdparty/SDL3_3.2.14-win32-x64/SDL3.dll"),
-        //     "SDL3.dll",
-        // );
-        // exe.step.dependOn(&sdl_dll_dep.step);
-        //
-        // const sdl_ttf_dll_dep = b.addInstallBinFile(
-        //     b.path("./thirdparty/SDL3_ttf-3.2.2-win32-x64/SDL3_ttf.dll"),
-        //     "SDL3_ttf.dll",
-        // );
-        // exe.step.dependOn(&sdl_ttf_dll_dep.step);
+        if (optimize != .Debug) {
+            exe.subsystem = .Windows;
+        }
+        exe.addLibraryPath(.{ .cwd_relative = "thirdparty/SDL3_3.2.14-win32-x64/" });
+        exe.addLibraryPath(.{ .cwd_relative = "thirdparty/SDL3_ttf-3.2.2-win32-x64/" });
+        exe.addLibraryPath(.{ .cwd_relative = "thirdparty/SDL3_image-3.2.4-win32-x64/" });
+
+        const sdl_dll_dep = b.addInstallBinFile(b.path("thirdparty/SDL3_3.2.14-win32-x64/SDL3.dll"), "SDL3.dll");
+        const sdl_ttf_dll_dep = b.addInstallBinFile(b.path("./thirdparty/SDL3_ttf-3.2.2-win32-x64/SDL3_ttf.dll"), "SDL3_ttf.dll");
+        const sdl_image_dll_dep = b.addInstallBinFile(b.path("./thirdparty/SDL3_image-3.2.4-win32-x64/SDL3_image.dll"), "SDL3_image.dll");
+
+        exe.step.dependOn(&sdl_dll_dep.step);
+        exe.step.dependOn(&sdl_ttf_dll_dep.step);
+        exe.step.dependOn(&sdl_image_dll_dep.step);
     }
 
     // This declares intent for the executable to be installed into the

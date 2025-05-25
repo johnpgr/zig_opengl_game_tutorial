@@ -1,16 +1,10 @@
 const std = @import("std");
-
-const c = @cImport({
-    @cDefine("SDL_DISABLE_OLDNAMES", {});
-    @cDefine("GL_GLEXT_PROTOTYPES", {});
-    @cInclude("SDL3/SDL.h");
-    @cInclude("SDL3_ttf/SDL_ttf.h");
-    @cInclude("SDL3/SDL_opengl.h");
-});
+const gl = @import("opengl.zig");
+const c = @import("c.zig").c;
 
 var global_running = true;
 
-pub fn handleAppEvent(event: *c.SDL_Event) !void {
+fn handleAppEvent(event: *c.SDL_Event) !void {
     while (c.SDL_PollEvent(event)) {
         switch (event.type) {
             c.SDL_EVENT_QUIT => {
@@ -25,7 +19,7 @@ pub fn handleAppEvent(event: *c.SDL_Event) !void {
                     else => {},
                 }
             },
-            else => {}
+            else => {},
         }
     }
 }
@@ -41,12 +35,19 @@ pub fn main() !void {
         "Celeste Clone Zig",
         1280,
         720,
-        c.SDL_WINDOW_HIDDEN | c.SDL_WINDOW_RESIZABLE,
+        c.SDL_WINDOW_HIDDEN | c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_OPENGL,
     ) orelse {
         std.debug.print("Failed to create window: {s}\n", .{c.SDL_GetError()});
         return error.WindowCreationError;
     };
     defer c.SDL_DestroyWindow(window);
+
+    try gl.init(window);
+    defer gl.deinit();
+
+    const prog_id = gl.createProgram();
+    defer gl.deleteProgram(prog_id);
+    std.debug.print("OpenGL Program ID: {}\n", .{prog_id});
 
     _ = c.SDL_ShowWindow(window);
 

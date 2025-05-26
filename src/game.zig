@@ -4,9 +4,13 @@ const GLRenderer = @import("gl_renderer.zig");
 
 const Self = @This();
 
+const INITIAL_SCREEN_WIDTH: f32 = 1280.0;
+const INITIAL_SCREEN_HEIGHT: f32 = 720.0;
+
 window: *c.SDL_Window,
 renderer: GLRenderer,
 running: bool,
+screen_size: c.SDL_FPoint,
 
 pub fn init() !Self {
     if (!c.SDL_Init(c.SDL_INIT_VIDEO)) {
@@ -16,8 +20,8 @@ pub fn init() !Self {
 
     const window = c.SDL_CreateWindow(
         "Celeste Clone Zig",
-        1280,
-        720,
+        INITIAL_SCREEN_WIDTH,
+        INITIAL_SCREEN_HEIGHT,
         c.SDL_WINDOW_HIDDEN | c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_OPENGL,
     ) orelse {
         std.debug.print("Failed to create window: {s}\n", .{c.SDL_GetError()});
@@ -30,6 +34,10 @@ pub fn init() !Self {
         .window = window,
         .renderer = renderer,
         .running = true,
+        .screen_size = .{
+            .x = INITIAL_SCREEN_WIDTH,
+            .y = INITIAL_SCREEN_HEIGHT,
+        },
     };
 }
 
@@ -54,6 +62,10 @@ pub fn handleEvent(self: *Self, event: *c.SDL_Event) void {
                     else => {},
                 }
             },
+            c.SDL_EVENT_WINDOW_RESIZED => {
+                self.screen_size.x = @floatFromInt(event.window.data1);
+                self.screen_size.y = @floatFromInt(event.window.data2);
+            },
             else => {},
         }
     }
@@ -66,6 +78,6 @@ pub fn update(self: *Self) void {
 }
 
 pub fn render(self: *Self) void {
-    self.renderer.render();
+    self.renderer.render(self.screen_size.x, self.screen_size.y);
     _ = c.SDL_GL_SwapWindow(self.window);
 }

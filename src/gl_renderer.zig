@@ -103,12 +103,12 @@ pub fn deinit(self: *Self) void {
     gl.deleteProgram(self.program_id);
 }
 
-pub fn render(self: *Self) void {
+pub fn render(self: *Self, w: f32, h: f32) void {
     _ = self;
     c.glClearColor(119.0 / 255.0, 33.0 / 255.0, 111.0 / 255.0, 1.0);
     c.glClearDepth(0.0);
     c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
-    c.glViewport(0, 0, 1280, 720);
+    c.glViewport(0, 0, @intFromFloat(w), @intFromFloat(h));
     gl.drawArrays(c.GL_TRIANGLES, 0, 6);
 }
 

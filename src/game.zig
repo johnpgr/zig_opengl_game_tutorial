@@ -4,8 +4,8 @@ const GLRenderer = @import("gl_renderer.zig");
 
 const Self = @This();
 
-const INITIAL_SCREEN_WIDTH: f32 = 1280.0;
-const INITIAL_SCREEN_HEIGHT: f32 = 720.0;
+const INITIAL_SCREEN_WIDTH: f32 = 800.0;
+const INITIAL_SCREEN_HEIGHT: f32 = 600.0;
 
 window: *c.SDL_Window,
 renderer: GLRenderer,

@@ -199,11 +199,11 @@ pub fn deleteShader(shader: c_uint) void {
     glDeleteShader_ptr.?(shader);
 }
 
-pub fn deleteTextures(n: c_int, textures: [*]const c_uint) void {
+pub fn deleteTextures(n: c_int, textures: [*c]const c_uint) void {
     glDeleteTextures_ptr.?(n, textures);
 }
 
-pub fn genTextures(n: c_int, textures: [*]c_uint) void {
+pub fn genTextures(n: c_int, textures: [*c]c_uint) void {
     glGenTextures_ptr.?(n, textures);
 }
 

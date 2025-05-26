@@ -1,17 +1,21 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const gl = @import("gl_functions.zig");
+const assets = @import("assets.zig");
 const c = @import("c.zig").c;
 
 const Self = @This();
 
-context: c.SDL_GLContext,
-program_id: c.GLuint,
+context: c.SDL_GLContext = null,
+program_id: c.GLuint = 0,
+texture_id: c.GLuint = 0,
 
 pub fn init(window: *c.SDL_Window) !Self {
+    var self = Self{};
+
     initGLAttributes();
 
-    const context = c.SDL_GL_CreateContext(window) orelse {
+    self.context = c.SDL_GL_CreateContext(window) orelse {
         std.debug.print("Failed to create OpenGL context: {s}\n", .{c.SDL_GetError()});
         return error.ContextCreationFailed;
     };
@@ -72,14 +76,14 @@ pub fn init(window: *c.SDL_Window) !Self {
         }
     }
 
-    const program_id = gl.createProgram();
+    self.program_id = gl.createProgram();
 
-    gl.attachShader(program_id, vert_shader_id);
-    gl.attachShader(program_id, frag_shader_id);
-    gl.linkProgram(program_id);
+    gl.attachShader(self.program_id, vert_shader_id);
+    gl.attachShader(self.program_id, frag_shader_id);
+    gl.linkProgram(self.program_id);
 
-    gl.detachShader(program_id, vert_shader_id);
-    gl.detachShader(program_id, frag_shader_id);
+    gl.detachShader(self.program_id, vert_shader_id);
+    gl.detachShader(self.program_id, frag_shader_id);
     gl.deleteShader(vert_shader_id);
     gl.deleteShader(frag_shader_id);
 
@@ -87,15 +91,33 @@ pub fn init(window: *c.SDL_Window) !Self {
     gl.genVertexArrays(1, &VAO);
     gl.bindVertexArray(VAO);
 
+    const texture = try assets.loadTexture("TEXTURE_ATLAS.png");
+    gl.genTextures(1, &self.texture_id);
+    gl.activeTexture(c.GL_TEXTURE0);
+    gl.bindTexture(c.GL_TEXTURE_2D, self.texture_id);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_CLAMP_TO_EDGE);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_CLAMP_TO_EDGE);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+    c.glTexImage2D(
+        c.GL_TEXTURE_2D,
+        0,
+        c.GL_SRGB8_ALPHA8,
+        texture.w,
+        texture.h,
+        0,
+        c.GL_RGBA,
+        c.GL_UNSIGNED_BYTE,
+        texture.pixels,
+    );
+    c.SDL_DestroySurface(texture);
+
     c.glEnable(c.GL_DEPTH_TEST);
     c.glDepthFunc(c.GL_GREATER);
 
-    gl.useProgram(program_id);
+    gl.useProgram(self.program_id);
 
-    return .{
-        .context = context,
-        .program_id = program_id,
-    };
+    return self;
 }
 
 pub fn deinit(self: *Self) void {

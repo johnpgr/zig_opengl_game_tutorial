@@ -1,5 +1,6 @@
 const std = @import("std");
-const gl = @import("opengl.zig");
+const gl = @import("gl_functions.zig");
+const gl_renderer = @import("gl_renderer.zig");
 const c = @import("c.zig").c;
 
 var global_running = true;
@@ -42,8 +43,8 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyWindow(window);
 
-    try gl.init(window);
-    defer gl.deinit();
+    try gl_renderer.init(window);
+    defer gl_renderer.deinit();
 
     const prog_id = gl.createProgram();
     defer gl.deleteProgram(prog_id);

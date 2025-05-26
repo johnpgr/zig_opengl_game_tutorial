@@ -41,6 +41,8 @@ pub fn build(b: *std.Build) void {
 
     if (target_os == .windows) {
         exe.linkSystemLibrary("opengl32");
+    } else if (target_os == .macos) {
+        exe.linkFramework("OpenGL");
     } else {
         exe.linkSystemLibrary("GL");
     }

@@ -3,13 +3,15 @@ const builtin = @import("builtin");
 const gl = @import("gl_functions.zig");
 const c = @import("c.zig").c;
 
-pub var context: c.SDL_GLContext = undefined;
-pub var program_id: c.GLuint = undefined;
+const Self = @This();
 
-pub fn init(window: *c.SDL_Window) !void {
+context: c.SDL_GLContext,
+program_id: c.GLuint,
+
+pub fn init(window: *c.SDL_Window) !Self {
     initGLAttributes();
 
-    context = c.SDL_GL_CreateContext(window) orelse {
+    const context = c.SDL_GL_CreateContext(window) orelse {
         std.debug.print("Failed to create OpenGL context: {s}\n", .{c.SDL_GetError()});
         return error.ContextCreationFailed;
     };
@@ -70,7 +72,7 @@ pub fn init(window: *c.SDL_Window) !void {
         }
     }
 
-    program_id = gl.createProgram();
+    const program_id = gl.createProgram();
 
     gl.attachShader(program_id, vert_shader_id);
     gl.attachShader(program_id, frag_shader_id);
@@ -89,14 +91,20 @@ pub fn init(window: *c.SDL_Window) !void {
     c.glDepthFunc(c.GL_GREATER);
 
     gl.useProgram(program_id);
+
+    return .{
+        .context = context,
+        .program_id = program_id,
+    };
 }
 
-pub fn deinit() void {
-    _ = c.SDL_GL_DestroyContext(context);
-    gl.deleteProgram(program_id);
+pub fn deinit(self: *Self) void {
+    _ = c.SDL_GL_DestroyContext(self.context);
+    gl.deleteProgram(self.program_id);
 }
 
-pub fn render() void {
+pub fn render(self: *Self) void {
+    _ = self;
     c.glClearColor(119.0 / 255.0, 33.0 / 255.0, 111.0 / 255.0, 1.0);
     c.glClearDepth(0.0);
     c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);

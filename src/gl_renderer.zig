@@ -7,12 +7,12 @@ pub var context: c.SDL_GLContext = undefined;
 pub var program_id: c.GLuint = undefined;
 
 pub fn init(window: *c.SDL_Window) !void {
-    try gl.loadOpenGLFunctions();
-
     context = c.SDL_GL_CreateContext(window) orelse {
         std.debug.print("Failed to create OpenGL context: {s}\n", .{c.SDL_GetError()});
         return error.ContextCreationFailed;
     };
+
+    try gl.loadOpenGLFunctions();
 
     initGLAttributes();
 
@@ -22,8 +22,8 @@ pub fn init(window: *c.SDL_Window) !void {
 
     const vert_shader_id = gl.createShader(c.GL_VERTEX_SHADER);
     const frag_shader_id = gl.createShader(c.GL_FRAGMENT_SHADER);
-    const vert_shader = @embedFile("shaders/quad.vert");
-    const frag_shader = @embedFile("shaders/quad.frag");
+    const vert_shader = @embedFile("shaders/quad.vert.glsl");
+    const frag_shader = @embedFile("shaders/quad.frag.glsl");
     const vert_sources = [_][*:0]const u8{vert_shader};
     const frag_sources = [_][*:0]const u8{frag_shader};
 

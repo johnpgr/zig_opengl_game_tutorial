@@ -1,6 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig").c;
-const GLRenderer = @import("gl_renderer.zig");
+const Renderer = @import("renderer.zig");
 
 const Self = @This();
 
@@ -8,7 +8,7 @@ const INITIAL_SCREEN_WIDTH: f32 = 800.0;
 const INITIAL_SCREEN_HEIGHT: f32 = 600.0;
 
 window: *c.SDL_Window,
-renderer: GLRenderer,
+renderer: Renderer,
 running: bool,
 screen_size: c.SDL_FPoint,
 
@@ -28,7 +28,7 @@ pub fn init() !Self {
         return error.WindowCreationError;
     };
 
-    const renderer = try GLRenderer.init(window);
+    const renderer = try Renderer.init(window);
 
     return .{
         .window = window,

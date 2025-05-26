@@ -354,15 +354,15 @@ pub fn validateProgram(program: c_uint) void {
     glValidateProgram_ptr.?(program);
 }
 
-pub fn getProgramiv(program: c_uint, pname: c_uint, params: [*]c_int) void {
+pub fn getProgramiv(program: c_uint, pname: c_uint, params: [*c]c_int) void {
     glGetProgramiv_ptr.?(program, pname, params);
 }
 
 pub fn getProgramInfoLog(
-    program: c_uint,
-    bufSize: c_int,
-    length: [*]c_int,
-    infoLog: [*]u8,
+    program: c.GLuint,
+    bufSize: c.GLsizei,
+    length: [*c]c.GLsizei,
+    infoLog: [*c]c.GLchar,
 ) void {
     glGetProgramInfoLog_ptr.?(program, bufSize, length, infoLog);
 }

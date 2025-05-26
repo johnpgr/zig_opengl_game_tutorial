@@ -1,8 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const gl = @import("gl_functions.zig");
-const assets = @import("assets.zig");
+const gl = @import("gl.zig");
 const c = @import("c.zig").c;
+const assets = @import("assets.zig");
 const math = @import("math.zig");
 
 const Sprite = assets.Sprite;
@@ -100,6 +100,22 @@ pub fn init(window: *c.SDL_Window) !Self {
     gl.attachShader(self.program_id, vert_shader_id);
     gl.attachShader(self.program_id, frag_shader_id);
     gl.linkProgram(self.program_id);
+    {
+        var success: c_int = 0;
+        var log_length: c.GLsizei = 0;
+        var program_log: [2048]u8 = undefined;
+
+        gl.getProgramiv(self.program_id, c.GL_LINK_STATUS, &success);
+
+        if (success == 0) {
+            gl.getProgramInfoLog(self.program_id, 2048, &log_length, &program_log);
+            std.debug.print(
+                "Shader program linking failed: {s}\n",
+                .{program_log[0..@as(usize, @intCast(log_length))]},
+            );
+            return error.ProgramLinkingFailed;
+        }
+    }
 
     gl.detachShader(self.program_id, vert_shader_id);
     gl.detachShader(self.program_id, frag_shader_id);
@@ -130,6 +146,13 @@ pub fn init(window: *c.SDL_Window) !Self {
         texture.pixels,
     );
     c.SDL_DestroySurface(texture);
+
+    const texture_location = gl.getUniformLocation(self.program_id, "textureAtlas");
+    if (texture_location == -1) {
+        std.debug.print("Failed to get uniform location for textureAtlas\n", .{});
+        return error.TextureUniformLocationNotFound;
+    }
+    gl.uniform1i(texture_location, 0);
 
     c.glEnable(c.GL_FRAMEBUFFER_SRGB);
     c.glDisable(c.GL_MULTISAMPLE);

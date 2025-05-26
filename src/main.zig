@@ -1,6 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig").c;
-const gl = @import("gl_functions.zig");
+const gl = @import("gl.zig");
 const Game = @import("game.zig");
 
 pub fn main() !void {

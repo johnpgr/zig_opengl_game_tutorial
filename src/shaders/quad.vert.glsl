@@ -1,6 +1,6 @@
 #version 410 core
 
-layout(location = 0) out vec2 textureCoordsOut;
+layout(location = 0) out vec2 textureCoordsIn;
 
 const vec2 vertices[6] = vec2[6](
     // Triangle 1
@@ -32,5 +32,5 @@ const vec2 textureCoords[6] = vec2[6](
 void main() 
 {
     gl_Position = vec4(vertices[gl_VertexID], 0.0, 1.0);
-    textureCoordsOut = textureCoords[gl_VertexID];
+    textureCoordsIn = textureCoords[gl_VertexID];
 }

@@ -15,6 +15,8 @@ const MAX_TRANSFORMS = 1024;
 pub const Transform = struct {
     atlas_offset: IVec2,
     sprite_size: IVec2,
+    pos: Vec2,
+    size: Vec2,
 };
 
 pub const RenderData = struct {
@@ -178,13 +180,14 @@ pub fn render(self: *Self, w: f32, h: f32) void {
     gl.drawArrays(c.GL_TRIANGLES, 0, 6);
 }
 
-pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {
-    _ = pos;
+pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2, size: Vec2) void {
     const sprite = Sprite.fromId(sprite_id);
 
     const transform = Transform{
         .atlas_offset = sprite.atlas_offset,
         .sprite_size = sprite.sprite_size,
+        .pos = pos,
+        .size = size,
     };
 
     self.render_data.tranforms[self.render_data.tranformCount] = transform;
@@ -198,7 +201,7 @@ fn initGLAttributes() void {
         _ = c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MINOR_VERSION, 1);
     } else {
         _ = c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-        _ = c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MINOR_VERSION, 6);
+        _ = c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MINOR_VERSION, 3);
     }
     _ = c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_PROFILE_MASK, c.SDL_GL_CONTEXT_PROFILE_CORE);
     _ = c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_FLAGS, c.SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);

@@ -4,8 +4,8 @@ const Renderer = @import("renderer.zig");
 
 const Self = @This();
 
-const INITIAL_SCREEN_WIDTH: f32 = 800.0;
-const INITIAL_SCREEN_HEIGHT: f32 = 600.0;
+const INITIAL_SCREEN_WIDTH: f32 = 640.0;
+const INITIAL_SCREEN_HEIGHT: f32 = 480.0;
 
 window: *c.SDL_Window,
 renderer: Renderer,

@@ -46,14 +46,13 @@ pub fn main() !void {
     try gl_renderer.init(window);
     defer gl_renderer.deinit();
 
-    const prog_id = gl.createProgram();
-    defer gl.deleteProgram(prog_id);
-    std.debug.print("OpenGL Program ID: {}\n", .{prog_id});
-
     _ = c.SDL_ShowWindow(window);
 
     while (global_running) {
         var event: c.SDL_Event = undefined;
         try handleAppEvent(&event);
+
+        gl_renderer.render();
+        _ = c.SDL_GL_SwapWindow(window);
     }
 }

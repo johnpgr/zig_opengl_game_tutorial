@@ -329,15 +329,15 @@ pub fn compileShader(shader: c_uint) void {
     glCompileShader_ptr.?(shader);
 }
 
-pub fn getShaderiv(shader: c_uint, pname: c_uint, params: [*]c_int) void {
+pub fn getShaderiv(shader: c_uint, pname: c_uint, params: [*c]c_int) void {
     glGetShaderiv_ptr.?(shader, pname, params);
 }
 
 pub fn getShaderInfoLog(
-    shader: c_uint,
-    bufSize: c_int,
-    length: [*]c_int,
-    infoLog: [*]u8,
+    shader: c.GLuint,
+    bufSize: c.GLsizei,
+    length: [*c]c.GLsizei,
+    infoLog: [*c]c.GLchar,
 ) void {
     glGetShaderInfoLog_ptr.?(shader, bufSize, length, infoLog);
 }
@@ -371,7 +371,7 @@ pub fn genBuffers(n: c_int, buffers: [*]c_uint) void {
     glGenBuffers_ptr.?(n, buffers);
 }
 
-pub fn genVertexArrays(n: c_int, arrays: [*]c_uint) void {
+pub fn genVertexArrays(n: c_int, arrays: [*c]c_uint) void {
     glGenVertexArrays_ptr.?(n, arrays);
 }
 

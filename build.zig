@@ -30,7 +30,7 @@ pub fn build(b: *std.Build) void {
     // This creates another `std.Build.Step.Compile`, but this one builds an executable
     // rather than a static library.
     const exe = b.addExecutable(.{
-        .name = "celeste_clone_zig",
+        .name = "zig_opengl_game",
         .root_module = exe_mod,
     });
 
@@ -63,6 +63,14 @@ pub fn build(b: *std.Build) void {
         exe.step.dependOn(&sdl_dll_dep.step);
         exe.step.dependOn(&sdl_ttf_dll_dep.step);
         exe.step.dependOn(&sdl_image_dll_dep.step);
+
+        // Copy assets directory to bin
+        const copy_assets = b.addInstallDirectory(.{
+            .source_dir = b.path("assets"),
+            .install_dir = .bin,
+            .install_subdir = "assets",
+        });
+        exe.step.dependOn(&copy_assets.step);
     }
 
     // This declares intent for the executable to be installed into the

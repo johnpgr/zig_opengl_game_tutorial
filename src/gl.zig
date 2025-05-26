@@ -56,6 +56,8 @@ var glDeleteShader_ptr: ?*const fn (c_uint) callconv(.C) void = null;
 var glDrawElementsInstanced_ptr: ?*const fn (c_uint, c_int, c_uint, ?*const anyopaque, c_int) callconv(.C) void = null;
 var glGenerateMipmap_ptr: ?*const fn (c_uint) callconv(.C) void = null;
 var glDebugMessageCallback_ptr: ?*const fn (?*const fn (c_uint, c_uint, c_uint, c_uint, c_int, [*c]const u8, ?*const anyopaque) callconv(.c) void, ?*const anyopaque) callconv(.c) void = null;
+var glGetUniformBlockIndex_ptr: ?*const fn (c_uint, [*:0]const u8) callconv(.C) c_uint = null;
+var glUniformBlockBinding_ptr: ?*const fn (c_uint, c_uint, c_uint) callconv(.C) void = null;
 
 fn loadGLFunction(comptime T: type, name: [*:0]const u8) ?T {
     const proc = c.SDL_GL_GetProcAddress(name);
@@ -121,6 +123,8 @@ pub fn loadOpenGLFunctions() !void {
         glDrawElementsInstanced_ptr = loadGLFunction(@TypeOf(glDrawElementsInstanced_ptr.?), "glDrawElementsInstanced") orelse return error.FunctionLoadingFailed;
         glGenerateMipmap_ptr = loadGLFunction(@TypeOf(glGenerateMipmap_ptr.?), "glGenerateMipmap") orelse return error.FunctionLoadingFailed;
         glDebugMessageCallback_ptr = loadGLFunction(@TypeOf(glDebugMessageCallback_ptr.?), "glDebugMessageCallback") orelse return error.FunctionLoadingFailed;
+        glGetUniformBlockIndex_ptr = loadGLFunction(@TypeOf(glGetUniformBlockIndex_ptr.?), "glGetUniformBlockIndex") orelse return error.FunctionLoadingFailed;
+        glUniformBlockBinding_ptr = loadGLFunction(@TypeOf(glUniformBlockBinding_ptr.?), "glUniformBlockBinding") orelse return error.FunctionLoadingFailed;
     } else {
         // On Linux/macOS, functions are usually available directly
         glCreateProgram_ptr = c.glCreateProgram;
@@ -178,6 +182,8 @@ pub fn loadOpenGLFunctions() !void {
         if (comptime builtin.target.os.tag != .macos) {
             glDebugMessageCallback_ptr = c.glDebugMessageCallback;
         }
+        glGetUniformBlockIndex_ptr = c.glGetUniformBlockIndex;
+        glUniformBlockBinding_ptr = c.glUniformBlockBinding;
     }
 
     std.debug.print("OpenGL functions loaded successfully\n", .{});
@@ -223,11 +229,11 @@ pub fn uniform1f(location: c_int, v0: f32) void {
     glUniform1f_ptr.?(location, v0);
 }
 
-pub fn uniform2fv(location: c_int, count: c_int, value: [*]const f32) void {
+pub fn uniform2fv(location: c_int, count: c_int, value: [*c]const f32) void {
     glUniform2fv_ptr.?(location, count, value);
 }
 
-pub fn uniform3fv(location: c_int, count: c_int, value: [*]const f32) void {
+pub fn uniform3fv(location: c_int, count: c_int, value: [*c]const f32) void {
     glUniform3fv_ptr.?(location, count, value);
 }
 
@@ -239,7 +245,7 @@ pub fn uniformMatrix4fv(
     location: c_int,
     count: c_int,
     transpose: u8,
-    value: [*]const f32,
+    value: [*c]const f32,
 ) void {
     glUniformMatrix4fv_ptr.?(location, count, transpose, value);
 }
@@ -292,11 +298,11 @@ pub fn framebufferTexture2D(
     glFramebufferTexture2D_ptr.?(target, attachment, textarget, texture, level);
 }
 
-pub fn drawBuffers(n: c_int, bufs: [*]const c_uint) void {
+pub fn drawBuffers(n: c_int, bufs: [*c]const c_uint) void {
     glDrawBuffers_ptr.?(n, bufs);
 }
 
-pub fn deleteFramebuffers(n: c_int, framebuffers: [*]const c_uint) void {
+pub fn deleteFramebuffers(n: c_int, framebuffers: [*c]const c_uint) void {
     glDeleteFramebuffers_ptr.?(n, framebuffers);
 }
 
@@ -311,7 +317,7 @@ pub fn blendEquation(mode: c_uint) void {
 pub fn clearBufferfv(
     buffer: c_uint,
     drawbuffer: c_int,
-    value: [*]const f32,
+    value: [*c]const f32,
 ) void {
     glClearBufferfv_ptr.?(buffer, drawbuffer, value);
 }
@@ -367,7 +373,7 @@ pub fn getProgramInfoLog(
     glGetProgramInfoLog_ptr.?(program, bufSize, length, infoLog);
 }
 
-pub fn genBuffers(n: c_int, buffers: [*]c_uint) void {
+pub fn genBuffers(n: c_int, buffers: [*c]c_uint) void {
     glGenBuffers_ptr.?(n, buffers);
 }
 
@@ -422,7 +428,7 @@ pub fn bufferData(
 pub fn getVertexAttribPointerv(
     index: c_uint,
     pname: c_uint,
-    pointer: [*]?*anyopaque,
+    pointer: [*c]?*anyopaque,
 ) void {
     glGetVertexAttribPointerv_ptr.?(index, pname, pointer);
 }
@@ -431,11 +437,11 @@ pub fn useProgram(program: c_uint) void {
     glUseProgram_ptr.?(program);
 }
 
-pub fn deleteVertexArrays(n: c_int, arrays: [*]const c_uint) void {
+pub fn deleteVertexArrays(n: c_int, arrays: [*c]const c_uint) void {
     glDeleteVertexArrays_ptr.?(n, arrays);
 }
 
-pub fn deleteBuffers(n: c_int, buffers: [*]const c_uint) void {
+pub fn deleteBuffers(n: c_int, buffers: [*c]const c_uint) void {
     glDeleteBuffers_ptr.?(n, buffers);
 }
 
@@ -474,4 +480,16 @@ pub fn debugMessageCallback(
     } else {
         std.debug.print("glDebugMessageCallback is a function from OpenGL 4.3+ (macOS max. OpenGL version: 4.1)\n", .{});
     }
+}
+
+pub fn getUniformBlockIndex(program: c_uint, name: [*:0]const u8) c_uint {
+    return glGetUniformBlockIndex_ptr.?(program, name);
+}
+
+pub fn uniformBlockBinding(
+    program: c_uint,
+    uniformBlockIndex: c_uint,
+    uniformBlockBinding_: c_uint,
+) void {
+    glUniformBlockBinding_ptr.?(program, uniformBlockIndex, uniformBlockBinding_);
 }

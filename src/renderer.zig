@@ -20,7 +20,7 @@ pub const Transform = struct {
 };
 
 pub const RenderData = struct {
-    tranformCount: usize,
+    tranformCount: isize,
     tranforms: [MAX_TRANSFORMS]Transform,
 };
 
@@ -29,7 +29,12 @@ const Self = @This();
 context: c.SDL_GLContext = null,
 program_id: c.GLuint = 0,
 texture_id: c.GLuint = 0,
-render_data: RenderData = .{ .tranformCount = 0, .tranforms = undefined },
+transform_ubo_id: c.GLuint = 0,
+screen_size_id: c.GLint = 0,
+render_data: RenderData = .{
+    .tranformCount = 0,
+    .tranforms = undefined,
+},
 
 pub fn init(window: *c.SDL_Window) !Self {
     var self = Self{};
@@ -128,7 +133,16 @@ pub fn init(window: *c.SDL_Window) !Self {
     gl.genVertexArrays(1, &VAO);
     gl.bindVertexArray(VAO);
 
+    gl.useProgram(self.program_id);
+
+    // Texture atlas
     const texture = try assets.loadTexture("TEXTURE_ATLAS.png");
+    const texture_location = gl.getUniformLocation(self.program_id, "textureAtlas");
+    if (texture_location == -1) {
+        std.debug.print("Failed to get uniform location for textureAtlas\n", .{});
+        return error.TextureUniformLocationNotFound;
+    }
+    gl.uniform1i(texture_location, 0);
     gl.genTextures(1, &self.texture_id);
     gl.activeTexture(c.GL_TEXTURE0);
     gl.bindTexture(c.GL_TEXTURE_2D, self.texture_id);
@@ -149,19 +163,30 @@ pub fn init(window: *c.SDL_Window) !Self {
     );
     c.SDL_DestroySurface(texture);
 
-    const texture_location = gl.getUniformLocation(self.program_id, "textureAtlas");
-    if (texture_location == -1) {
-        std.debug.print("Failed to get uniform location for textureAtlas\n", .{});
-        return error.TextureUniformLocationNotFound;
+    // Transform UBO
+    const transform_ubo_idx = gl.getUniformBlockIndex(self.program_id, "TransformUBO");
+    if (transform_ubo_idx == c.GL_INVALID_INDEX) {
+        std.debug.print("Failed to get uniform block index for TransformUBO\n", .{});
+        return error.TransformUBOIndexNotFound;
     }
-    gl.uniform1i(texture_location, 0);
+    gl.uniformBlockBinding(self.program_id, transform_ubo_idx, 0);
+    gl.genBuffers(1, &self.transform_ubo_id);
+    gl.bindBufferBase(c.GL_UNIFORM_BUFFER, 0, self.transform_ubo_id);
+    gl.bufferData(
+        c.GL_UNIFORM_BUFFER,
+        @sizeOf(Transform) * MAX_TRANSFORMS,
+        &self.render_data.tranforms,
+        c.GL_DYNAMIC_DRAW,
+    );
 
+    // Screen size uniform
+    self.screen_size_id = gl.getUniformLocation(self.program_id, "screenSize");
+
+    // Vertex attributes
     c.glEnable(c.GL_FRAMEBUFFER_SRGB);
     c.glDisable(c.GL_MULTISAMPLE);
     c.glEnable(c.GL_DEPTH_TEST);
     c.glDepthFunc(c.GL_GREATER);
-
-    gl.useProgram(self.program_id);
 
     return self;
 }
@@ -172,12 +197,24 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn render(self: *Self, w: f32, h: f32) void {
-    _ = self;
     c.glClearColor(119.0 / 255.0, 33.0 / 255.0, 111.0 / 255.0, 1.0);
     c.glClearDepth(0.0);
     c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
+    // Set the viewport to the current window size
     c.glViewport(0, 0, @intFromFloat(w), @intFromFloat(h));
-    gl.drawArrays(c.GL_TRIANGLES, 0, 6);
+    // Send the screen size to the shader
+    gl.uniform2fv(self.screen_size_id, 1, &[2]f32{ w, h });
+
+    // Copy the transforms to the GPU
+    gl.bufferSubData(
+        c.GL_UNIFORM_BUFFER,
+        0,
+        @sizeOf(Transform) * self.render_data.tranformCount,
+        &self.render_data.tranforms,
+    );
+    gl.drawArraysInstanced(c.GL_TRIANGLES, 0, 6, @intCast(self.render_data.tranformCount));
+    // Reset transform count for the next frame
+    self.render_data.tranformCount = 0;
 }
 
 pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2, size: Vec2) void {
@@ -190,7 +227,7 @@ pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2, size: Vec2) void 
         .size = size,
     };
 
-    self.render_data.tranforms[self.render_data.tranformCount] = transform;
+    self.render_data.tranforms[@intCast(self.render_data.tranformCount)] = transform;
     self.render_data.tranformCount += 1;
 }
 

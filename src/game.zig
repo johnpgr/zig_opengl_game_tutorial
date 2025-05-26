@@ -19,7 +19,7 @@ pub fn init() !Self {
     }
 
     const window = c.SDL_CreateWindow(
-        "Celeste Clone Zig",
+        "Zig OpenGL Game",
         INITIAL_SCREEN_WIDTH,
         INITIAL_SCREEN_HEIGHT,
         c.SDL_WINDOW_HIDDEN | c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_OPENGL,
@@ -72,9 +72,23 @@ pub fn handleEvent(self: *Self, event: *c.SDL_Event) void {
 }
 
 pub fn update(self: *Self) void {
-    // TODO: Update game logic here
-    // For now
-    _ = self;
+    const cols: u32 = 8;
+    const gap: f32 = 10.0;
+    const sprite_size: f32 = 64.0;
+    
+    for (0..100) |i| {
+        const row = @divFloor(@as(u32, @intCast(i)), cols);
+        const col = @mod(@as(u32, @intCast(i)), cols);
+        
+        self.renderer.drawSprite(
+            .DICE,
+            .{
+                .x = gap + @as(f32, @floatFromInt(col)) * (sprite_size + gap),
+                .y = gap + @as(f32, @floatFromInt(row)) * (sprite_size + gap),
+            },
+            .{ .x = sprite_size, .y = sprite_size },
+        );
+    }
 }
 
 pub fn render(self: *Self) void {

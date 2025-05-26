@@ -7,14 +7,17 @@ pub var context: c.SDL_GLContext = undefined;
 pub var program_id: c.GLuint = undefined;
 
 pub fn init(window: *c.SDL_Window) !void {
+    initGLAttributes();
+
     context = c.SDL_GL_CreateContext(window) orelse {
         std.debug.print("Failed to create OpenGL context: {s}\n", .{c.SDL_GetError()});
         return error.ContextCreationFailed;
     };
 
-    try gl.loadOpenGLFunctions();
+    const gl_version = c.glGetString(c.GL_VERSION);
+    std.debug.print("OpenGL Version: {s}\n", .{gl_version});
 
-    initGLAttributes();
+    try gl.loadOpenGLFunctions();
 
     gl.debugMessageCallback(glDebugCallback, null);
     c.glEnable(c.GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -84,6 +87,8 @@ pub fn init(window: *c.SDL_Window) !void {
 
     c.glEnable(c.GL_DEPTH_TEST);
     c.glDepthFunc(c.GL_GREATER);
+
+    gl.useProgram(program_id);
 }
 
 pub fn deinit() void {
@@ -109,6 +114,7 @@ fn initGLAttributes() void {
         _ = c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MINOR_VERSION, 6);
     }
     _ = c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_PROFILE_MASK, c.SDL_GL_CONTEXT_PROFILE_CORE);
+    _ = c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_FLAGS, c.SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 }
 
 fn glDebugCallback(

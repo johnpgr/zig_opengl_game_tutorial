@@ -3,12 +3,31 @@ const builtin = @import("builtin");
 const gl = @import("gl_functions.zig");
 const assets = @import("assets.zig");
 const c = @import("c.zig").c;
+const math = @import("math.zig");
+
+const Sprite = assets.Sprite;
+const SpriteID = assets.SpriteID;
+const Vec2 = math.Vec2;
+const IVec2 = math.IVec2;
+
+const MAX_TRANSFORMS = 1024;
+
+pub const Transform = struct {
+    atlas_offset: IVec2,
+    sprite_size: IVec2,
+};
+
+pub const RenderData = struct {
+    tranformCount: usize,
+    tranforms: [MAX_TRANSFORMS]Transform,
+};
 
 const Self = @This();
 
 context: c.SDL_GLContext = null,
 program_id: c.GLuint = 0,
 texture_id: c.GLuint = 0,
+render_data: RenderData = .{ .tranformCount = 0, .tranforms = undefined },
 
 pub fn init(window: *c.SDL_Window) !Self {
     var self = Self{};
@@ -112,6 +131,8 @@ pub fn init(window: *c.SDL_Window) !Self {
     );
     c.SDL_DestroySurface(texture);
 
+    c.glEnable(c.GL_FRAMEBUFFER_SRGB);
+    c.glDisable(c.GL_MULTISAMPLE);
     c.glEnable(c.GL_DEPTH_TEST);
     c.glDepthFunc(c.GL_GREATER);
 
@@ -132,6 +153,19 @@ pub fn render(self: *Self, w: f32, h: f32) void {
     c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
     c.glViewport(0, 0, @intFromFloat(w), @intFromFloat(h));
     gl.drawArrays(c.GL_TRIANGLES, 0, 6);
+}
+
+pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {
+    _ = pos;
+    const sprite = Sprite.fromId(sprite_id);
+
+    const transform = Transform{
+        .atlas_offset = sprite.atlas_offset,
+        .sprite_size = sprite.sprite_size,
+    };
+
+    self.render_data.tranforms[self.render_data.tranformCount] = transform;
+    self.render_data.tranformCount += 1;
 }
 
 fn initGLAttributes() void {

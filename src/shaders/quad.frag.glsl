@@ -7,5 +7,9 @@ layout(location = 0) uniform sampler2D textureAtlas;
 
 void main() {
     vec4 textureColor = texelFetch(textureAtlas, ivec2(textureCoordsIn), 0);
+    if(textureColor.a == 0.0) {
+        discard;
+    }
+
     fragColor = textureColor;
 }

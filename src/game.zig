@@ -1,18 +1,18 @@
-const std = @import("std");
 const c = @import("c.zig").c;
-const Renderer = @import("renderer.zig");
+const std = @import("std");
+const Input = @import("input.zig");
+const RenderInterface = @import("render-interface.zig");
+const GLRenderer = @import("gl-renderer.zig");
 
+const RenderData = RenderInterface.RenderData;
 const Self = @This();
 
-const INITIAL_SCREEN_WIDTH: f32 = 640.0;
-const INITIAL_SCREEN_HEIGHT: f32 = 480.0;
-
 window: *c.SDL_Window,
-renderer: Renderer,
+renderer: GLRenderer,
+input: ?*Input,
 running: bool,
-screen_size: c.SDL_FPoint,
 
-pub fn init() !Self {
+pub fn init(input: *Input, render_data: *RenderData) !Self {
     if (!c.SDL_Init(c.SDL_INIT_VIDEO)) {
         std.debug.print("Failed to initialize SDL: {s}\n", .{c.SDL_GetError()});
         return error.SDLInitError;
@@ -20,24 +20,21 @@ pub fn init() !Self {
 
     const window = c.SDL_CreateWindow(
         "Zig OpenGL Game",
-        INITIAL_SCREEN_WIDTH,
-        INITIAL_SCREEN_HEIGHT,
+        @intFromFloat(input.screen_size.x),
+        @intFromFloat(input.screen_size.y),
         c.SDL_WINDOW_HIDDEN | c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_OPENGL,
     ) orelse {
         std.debug.print("Failed to create window: {s}\n", .{c.SDL_GetError()});
         return error.WindowCreationError;
     };
 
-    const renderer = try Renderer.init(window);
+    const renderer = try GLRenderer.init(window, render_data);
 
     return .{
         .window = window,
         .renderer = renderer,
         .running = true,
-        .screen_size = .{
-            .x = INITIAL_SCREEN_WIDTH,
-            .y = INITIAL_SCREEN_HEIGHT,
-        },
+        .input = input,
     };
 }
 
@@ -63,8 +60,8 @@ pub fn handleEvent(self: *Self, event: *c.SDL_Event) void {
                 }
             },
             c.SDL_EVENT_WINDOW_RESIZED => {
-                self.screen_size.x = @floatFromInt(event.window.data1);
-                self.screen_size.y = @floatFromInt(event.window.data2);
+                self.input.?.screen_size.x = @floatFromInt(event.window.data1);
+                self.input.?.screen_size.y = @floatFromInt(event.window.data2);
             },
             else => {},
         }
@@ -92,6 +89,8 @@ pub fn update(self: *Self) void {
 }
 
 pub fn render(self: *Self) void {
-    self.renderer.render(self.screen_size.x, self.screen_size.y);
-    _ = c.SDL_GL_SwapWindow(self.window);
+    if(self.input) |input| {
+        self.renderer.render(input.screen_size.x, input.screen_size.y);
+        _ = c.SDL_GL_SwapWindow(self.window);
+    }
 }

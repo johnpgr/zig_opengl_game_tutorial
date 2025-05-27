@@ -4,25 +4,14 @@ const gl = @import("gl.zig");
 const c = @import("c.zig").c;
 const assets = @import("assets.zig");
 const math = @import("math.zig");
+const RenderInterface = @import("render-interface.zig");
 
 const Sprite = assets.Sprite;
 const SpriteID = assets.SpriteID;
+const RenderData = RenderInterface.RenderData;
+const Transform = RenderInterface.Transform;
+const MAX_TRANSFORMS = RenderInterface.MAX_TRANSFORMS;
 const Vec2 = math.Vec2;
-const IVec2 = math.IVec2;
-
-const MAX_TRANSFORMS = 1024;
-
-pub const Transform = struct {
-    atlas_offset: IVec2,
-    sprite_size: IVec2,
-    pos: Vec2,
-    size: Vec2,
-};
-
-pub const RenderData = struct {
-    tranformCount: isize,
-    tranforms: [MAX_TRANSFORMS]Transform,
-};
 
 const Self = @This();
 
@@ -31,13 +20,11 @@ program_id: c.GLuint = 0,
 texture_id: c.GLuint = 0,
 transform_ubo_id: c.GLuint = 0,
 screen_size_id: c.GLint = 0,
-render_data: RenderData = .{
-    .tranformCount = 0,
-    .tranforms = undefined,
-},
+render_data: ?*RenderData = null,
 
-pub fn init(window: *c.SDL_Window) !Self {
+pub fn init(window: *c.SDL_Window, render_data: *RenderData) !Self {
     var self = Self{};
+    self.render_data = render_data;
 
     initGLAttributes();
 
@@ -175,7 +162,7 @@ pub fn init(window: *c.SDL_Window) !Self {
     gl.bufferData(
         c.GL_UNIFORM_BUFFER,
         @sizeOf(Transform) * MAX_TRANSFORMS,
-        &self.render_data.tranforms,
+        &render_data.transforms,
         c.GL_DYNAMIC_DRAW,
     );
 
@@ -197,38 +184,42 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn render(self: *Self, w: f32, h: f32) void {
-    c.glClearColor(119.0 / 255.0, 33.0 / 255.0, 111.0 / 255.0, 1.0);
-    c.glClearDepth(0.0);
-    c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
-    // Set the viewport to the current window size
-    c.glViewport(0, 0, @intFromFloat(w), @intFromFloat(h));
-    // Send the screen size to the shader
-    gl.uniform2fv(self.screen_size_id, 1, &[2]f32{ w, h });
+    if (self.render_data) |data| {
+        c.glClearColor(119.0 / 255.0, 33.0 / 255.0, 111.0 / 255.0, 1.0);
+        c.glClearDepth(0.0);
+        c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
+        // Set the viewport to the current window size
+        c.glViewport(0, 0, @intFromFloat(w), @intFromFloat(h));
+        // Send the screen size to the shader
+        gl.uniform2fv(self.screen_size_id, 1, &[2]f32{ w, h });
 
-    // Copy the transforms to the GPU
-    gl.bufferSubData(
-        c.GL_UNIFORM_BUFFER,
-        0,
-        @sizeOf(Transform) * self.render_data.tranformCount,
-        &self.render_data.tranforms,
-    );
-    gl.drawArraysInstanced(c.GL_TRIANGLES, 0, 6, @intCast(self.render_data.tranformCount));
-    // Reset transform count for the next frame
-    self.render_data.tranformCount = 0;
+        // Copy the transforms to the GPU
+        gl.bufferSubData(
+            c.GL_UNIFORM_BUFFER,
+            0,
+            @sizeOf(Transform) * @as(isize,@intCast(data.transform_count)),
+            &data.transforms,
+        );
+        gl.drawArraysInstanced(c.GL_TRIANGLES, 0, 6, @intCast(data.transform_count));
+        // Reset transform count for the next frame
+        data.transform_count = 0;
+    }
 }
 
 pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2, size: Vec2) void {
-    const sprite = Sprite.fromId(sprite_id);
+    if (self.render_data) |data| {
+        const sprite = Sprite.fromId(sprite_id);
 
-    const transform = Transform{
-        .atlas_offset = sprite.atlas_offset,
-        .sprite_size = sprite.sprite_size,
-        .pos = pos,
-        .size = size,
-    };
+        const transform = Transform{
+            .atlas_offset = sprite.atlas_offset,
+            .sprite_size = sprite.sprite_size,
+            .pos = pos,
+            .size = size,
+        };
 
-    self.render_data.tranforms[@intCast(self.render_data.tranformCount)] = transform;
-    self.render_data.tranformCount += 1;
+        data.transforms[@intCast(data.transform_count)] = transform;
+        data.transform_count += 1;
+    }
 }
 
 fn initGLAttributes() void {

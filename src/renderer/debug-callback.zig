@@ -1,13 +1,14 @@
 const c = @import("c");
+const gl = @import("gl");
 const builtin = @import("builtin");
 const std = @import("std");
 
 pub fn glDebugCallback(
-    source: c.GLenum,
-    type_: c.GLenum,
-    id: c.GLuint,
-    severity: c.GLenum,
-    length: c.GLsizei,
+    source: c_uint,
+    type_: c_uint,
+    id: c_uint,
+    severity: c_uint,
+    length: c_int,
     message: [*c]const u8,
     user: ?*const anyopaque,
 ) callconv(.C) void {
@@ -18,9 +19,9 @@ pub fn glDebugCallback(
         return;
     }
 
-    if (severity == c.GL_DEBUG_SEVERITY_HIGH and
-        severity == c.GL_DEBUG_SEVERITY_MEDIUM and
-        severity == c.GL_DEBUG_SEVERITY_LOW)
+    if (severity == gl.DEBUG_SEVERITY_HIGH and
+        severity == gl.DEBUG_SEVERITY_MEDIUM and
+        severity == gl.DEBUG_SEVERITY_LOW)
     {
         std.debug.print(
             "OpenGL Debug Message: {s}\n",

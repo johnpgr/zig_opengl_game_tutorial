@@ -29,8 +29,8 @@ pub fn init(window: *c.SDL_Window) !Self {
 
     if (!c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MAJOR_VERSION, gl.info.version_major))
         return error.MajorVersionSettingFailed;
-    if (!c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MAJOR_VERSION, gl.info.version_minor))
-        return error.MajorVersionSettingFailed;
+    if (!c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MINOR_VERSION, gl.info.version_minor))
+        return error.MinorVersionSettingFailed;
     if (!c.SDL_GL_SetAttribute(
         c.SDL_GL_CONTEXT_PROFILE_MASK,
         switch (gl.info.api) {

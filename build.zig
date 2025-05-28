@@ -43,7 +43,6 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("gl", gl_bindings);
 
     if (target_os == .windows) {
-        exe.linkSystemLibrary("opengl32");
         exe.subsystem = if (optimize != .Debug) .Windows else .Console;
 
         const sdl_dll_dep = b.addInstallBinFile(b.path("thirdparty/SDL3_3.2.14-win32-x64/SDL3.dll"), "SDL3.dll");
@@ -60,16 +59,11 @@ pub fn build(b: *std.Build) void {
             .install_subdir = "assets",
         });
         exe.step.dependOn(&copy_assets.step);
-    } else if (target_os == .macos) {
-        exe.linkFramework("OpenGL");
-    } else {
-        exe.linkSystemLibrary("GL");
     }
 
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
-
     run_cmd.step.dependOn(b.getInstallStep());
 
     if (b.args) |args| {
@@ -78,13 +72,4 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
-
-    const exe_unit_tests = b.addTest(.{
-        .root_module = exe_mod,
-    });
-
-    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
-
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_exe_unit_tests.step);
 }

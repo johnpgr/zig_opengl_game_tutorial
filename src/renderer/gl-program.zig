@@ -5,6 +5,7 @@ const c = @import("c");
 const assets = @import("../common/assets.zig");
 const math = @import("../common/math.zig");
 const renderer_interface = @import("interface.zig");
+const glDebugCallback = @import("debug-callback.zig").glDebugCallback;
 
 const Transform = renderer_interface.Transform;
 const RenderData = renderer_interface.Transform;
@@ -22,7 +23,7 @@ program_id: c_uint = 0,
 texture_id: c_uint = 0,
 screen_size_id: c_int = 0,
 vao: c_uint = 0,
-vbo: c_uint = 0,
+ubo: c_uint = 0,
 
 pub fn init(window: *c.SDL_Window) !Self {
     var self = Self{};
@@ -60,7 +61,7 @@ pub fn init(window: *c.SDL_Window) !Self {
         std.debug.print("Failed to make OpenGL context current: {s}\n", .{c.SDL_GetError()});
         return error.ContextMakeCurrentFailed;
     }
-    errdefer _ = c.SDL_GL_MakeCurrent(window, null);
+    errdefer _ = c.SDL_GL_MakeCurrent(null, null);
 
     // Load OpenGL functions
     if (!self.procs.init(c.SDL_GL_GetProcAddress)) {
@@ -73,6 +74,12 @@ pub fn init(window: *c.SDL_Window) !Self {
 
     const gl_version = gl.GetString(gl.VERSION) orelse "Unknown OpenGL version";
     std.debug.print("OpenGL Version: {s}\n", .{gl_version});
+
+    if (gl.info.version_major >= 4 and gl.info.version_minor >= 3) {
+        gl.DebugMessageCallback(glDebugCallback, null);
+        gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS);
+        gl.Enable(gl.DEBUG_OUTPUT);
+    }
 
     self.program_id = gl.CreateProgram();
     if (self.program_id == 0) {
@@ -104,7 +111,7 @@ pub fn init(window: *c.SDL_Window) !Self {
             gl.GetShaderInfoLog(vert_shader_id, info_log_buf.len, null, &info_log_buf);
             std.debug.print(
                 "Vertex shader compilation failed: {s}\n",
-                .{info_log_buf},
+                .{std.mem.sliceTo(&info_log_buf, 0)},
             );
             return error.VertexShaderCompilationFailed;
         }
@@ -127,7 +134,7 @@ pub fn init(window: *c.SDL_Window) !Self {
             gl.GetShaderInfoLog(frag_shader_id, info_log_buf.len, null, &info_log_buf);
             std.debug.print(
                 "Fragment shader compilation failed: {s}\n",
-                .{info_log_buf},
+                .{std.mem.sliceTo(&info_log_buf, 0)},
             );
             return error.FragmentShaderCompilationFailed;
         }
@@ -141,7 +148,7 @@ pub fn init(window: *c.SDL_Window) !Self {
             gl.GetProgramInfoLog(self.program_id, info_log_buf.len, null, &info_log_buf);
             std.debug.print(
                 "Shader program linking failed: {s}\n",
-                .{info_log_buf},
+                .{std.mem.sliceTo(&info_log_buf, 0)},
             );
             return error.LinkProgramFailed;
         }
@@ -183,14 +190,14 @@ pub fn init(window: *c.SDL_Window) !Self {
     c.SDL_DestroySurface(texture);
 
     // Transform UBO
-    const vbox = gl.GetUniformBlockIndex(self.program_id, "TransformUBO");
-    if (vbox == gl.INVALID_INDEX) {
+    const ubo_idx = gl.GetUniformBlockIndex(self.program_id, "TransformUBO");
+    if (ubo_idx == gl.INVALID_INDEX) {
         std.debug.print("Failed to get uniform block index for TransformUBO\n", .{});
         return error.TransformUBOIndexNotFound;
     }
-    gl.UniformBlockBinding(self.program_id, vbox, 0);
-    gl.GenBuffers(1, (&self.vbo)[0..1]);
-    gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, self.vbo);
+    gl.UniformBlockBinding(self.program_id, ubo_idx, 0);
+    gl.GenBuffers(1, (&self.ubo)[0..1]);
+    gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, self.ubo);
     gl.BufferData(
         gl.UNIFORM_BUFFER,
         @sizeOf(Transform) * MAX_TRANSFORMS,

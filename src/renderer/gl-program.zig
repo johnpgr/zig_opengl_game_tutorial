@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const gl = @import("gl");
-const c = @import("../c.zig");
+const c = @import("c");
 const assets = @import("../common/assets.zig");
 const math = @import("../common/math.zig");
 const renderer_interface = @import("interface.zig");
@@ -18,11 +18,11 @@ const Self = @This();
 
 procs: gl.ProcTable = undefined,
 context: c.SDL_GLContext = null,
-vao: c.GLuint = 0,
-program_id: c.GLuint = 0,
-texture_id: c.GLuint = 0,
-transform_ubo_id: c.GLuint = 0,
-screen_size_id: c.GLint = 0,
+program_id: c_uint = 0,
+texture_id: c_uint = 0,
+screen_size_id: c_int = 0,
+vao: c_uint = 0,
+vbo: c_uint = 0,
 
 pub fn init(window: *c.SDL_Window) !Self {
     var self = Self{};
@@ -50,9 +50,6 @@ pub fn init(window: *c.SDL_Window) !Self {
             0,
     )) return error.ContextFlagsSettingFailed;
 
-    const gl_version = gl.GetString(c.GL_VERSION) orelse "Unknown OpenGL version";
-    std.debug.print("OpenGL Version: {s}\n", .{gl_version});
-
     self.context = c.SDL_GL_CreateContext(window) orelse {
         std.debug.print("Failed to create OpenGL context: {s}\n", .{c.SDL_GetError()});
         return error.ContextCreationFailed;
@@ -74,11 +71,14 @@ pub fn init(window: *c.SDL_Window) !Self {
     gl.makeProcTableCurrent(&self.procs);
     errdefer gl.makeProcTableCurrent(null);
 
-    self.program_id = gl.createProgram();
+    const gl_version = gl.GetString(gl.VERSION) orelse "Unknown OpenGL version";
+    std.debug.print("OpenGL Version: {s}\n", .{gl_version});
+
+    self.program_id = gl.CreateProgram();
     if (self.program_id == 0) {
         return error.ProgramCreationFailed;
     }
-    errdefer gl.deleteProgram(self.program_id);
+    errdefer gl.DeleteProgram(self.program_id);
 
     {
         const vert_shader = @embedFile("../shaders/quad.vert.glsl");
@@ -124,7 +124,7 @@ pub fn init(window: *c.SDL_Window) !Self {
         gl.GetShaderiv(frag_shader_id, gl.COMPILE_STATUS, &success);
 
         if (success == gl.FALSE) {
-            gl.getShaderInfoLog(frag_shader_id, info_log_buf.len, null, &info_log_buf);
+            gl.GetShaderInfoLog(frag_shader_id, info_log_buf.len, null, &info_log_buf);
             std.debug.print(
                 "Fragment shader compilation failed: {s}\n",
                 .{info_log_buf},
@@ -132,10 +132,10 @@ pub fn init(window: *c.SDL_Window) !Self {
             return error.FragmentShaderCompilationFailed;
         }
 
-        gl.attachShader(self.program_id, vert_shader_id);
-        gl.attachShader(self.program_id, frag_shader_id);
+        gl.AttachShader(self.program_id, vert_shader_id);
+        gl.AttachShader(self.program_id, frag_shader_id);
 
-        gl.linkProgram(self.program_id);
+        gl.LinkProgram(self.program_id);
         gl.GetProgramiv(self.program_id, gl.LINK_STATUS, &success);
         if (success == gl.FALSE) {
             gl.GetProgramInfoLog(self.program_id, info_log_buf.len, null, &info_log_buf);
@@ -147,86 +147,88 @@ pub fn init(window: *c.SDL_Window) !Self {
         }
     }
 
-    gl.GenVertexArrays(1, &self.vao);
+    gl.GenVertexArrays(1, (&self.vao)[0..1]);
+    errdefer gl.DeleteVertexArrays(1, (&self.vao)[0..1]);
+
     gl.BindVertexArray(self.vao);
 
-    gl.useProgram(self.program_id);
+    gl.UseProgram(self.program_id);
 
     // Texture atlas
     const texture = try assets.loadTexture("TEXTURE_ATLAS.png");
-    const texture_location = gl.getUniformLocation(self.program_id, "textureAtlas");
+    const texture_location = gl.GetUniformLocation(self.program_id, "textureAtlas");
     if (texture_location == -1) {
         std.debug.print("Failed to get uniform location for textureAtlas\n", .{});
         return error.TextureUniformLocationNotFound;
     }
-    gl.uniform1i(texture_location, 0);
-    gl.genTextures(1, &self.texture_id);
-    gl.activeTexture(c.GL_TEXTURE0);
-    gl.bindTexture(c.GL_TEXTURE_2D, self.texture_id);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_CLAMP_TO_EDGE);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_CLAMP_TO_EDGE);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
-    c.glTexImage2D(
-        c.GL_TEXTURE_2D,
+    gl.Uniform1i(texture_location, 0);
+    gl.GenTextures(1, (&self.texture_id)[0..1]);
+    gl.ActiveTexture(gl.TEXTURE0);
+    gl.BindTexture(gl.TEXTURE_2D, self.texture_id);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.TexImage2D(
+        gl.TEXTURE_2D,
         0,
-        c.GL_SRGB8_ALPHA8,
+        gl.SRGB8_ALPHA8,
         texture.w,
         texture.h,
         0,
-        c.GL_RGBA,
-        c.GL_UNSIGNED_BYTE,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
         texture.pixels,
     );
     c.SDL_DestroySurface(texture);
 
     // Transform UBO
-    const transform_ubo_idx = gl.getUniformBlockIndex(self.program_id, "TransformUBO");
-    if (transform_ubo_idx == c.GL_INVALID_INDEX) {
+    const vbox = gl.GetUniformBlockIndex(self.program_id, "TransformUBO");
+    if (vbox == gl.INVALID_INDEX) {
         std.debug.print("Failed to get uniform block index for TransformUBO\n", .{});
         return error.TransformUBOIndexNotFound;
     }
-    gl.uniformBlockBinding(self.program_id, transform_ubo_idx, 0);
-    gl.genBuffers(1, &self.transform_ubo_id);
-    gl.bindBufferBase(c.GL_UNIFORM_BUFFER, 0, self.transform_ubo_id);
-    gl.bufferData(
-        c.GL_UNIFORM_BUFFER,
+    gl.UniformBlockBinding(self.program_id, vbox, 0);
+    gl.GenBuffers(1, (&self.vbo)[0..1]);
+    gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, self.vbo);
+    gl.BufferData(
+        gl.UNIFORM_BUFFER,
         @sizeOf(Transform) * MAX_TRANSFORMS,
         null, // Initial data is null, will be filled later
-        c.GL_DYNAMIC_DRAW,
+        gl.DYNAMIC_DRAW,
     );
 
     // Screen size uniform
-    self.screen_size_id = gl.getUniformLocation(self.program_id, "screenSize");
+    self.screen_size_id = gl.GetUniformLocation(self.program_id, "screenSize");
 
     // Vertex attributes
-    c.glEnable(c.GL_FRAMEBUFFER_SRGB);
-    c.glDisable(c.GL_MULTISAMPLE);
-    c.glEnable(c.GL_DEPTH_TEST);
-    c.glDepthFunc(c.GL_GREATER);
+    gl.Enable(gl.FRAMEBUFFER_SRGB);
+    gl.Disable(gl.MULTISAMPLE);
+    gl.Enable(gl.DEPTH_TEST);
+    gl.DepthFunc(gl.GREATER);
 
     return self;
 }
 
 pub fn deinit(self: *Self) void {
     _ = c.SDL_GL_DestroyContext(self.context);
-    gl.deleteProgram(self.program_id);
+    gl.DeleteProgram(self.program_id);
 }
 
 pub fn clear(self: *Self, window_w: f32, window_h: f32) void {
-    c.glClearColor(119.0 / 255.0, 33.0 / 255.0, 111.0 / 255.0, 1.0);
-    c.glClearDepth(0.0);
-    c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
+    gl.ClearColor(119.0 / 255.0, 33.0 / 255.0, 111.0 / 255.0, 1.0);
+    gl.ClearDepth(0.0);
+    gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // Set the viewport to the current window size
-    c.glViewport(0, 0, @intFromFloat(window_w), @intFromFloat(window_h));
+    gl.Viewport(0, 0, @intFromFloat(window_w), @intFromFloat(window_h));
     // Send the screen size to the shader
-    gl.uniform2fv(self.screen_size_id, 1, &[2]f32{ window_w, window_h });
+    gl.Uniform2fv(self.screen_size_id, 1, &[2]f32{ window_w, window_h });
 }
 
 pub fn initTransforms(self: *Self, transforms: []const Transform) void {
     _ = self;
-    gl.bufferSubData(
-        c.GL_UNIFORM_BUFFER,
+    gl.BufferSubData(
+        gl.UNIFORM_BUFFER,
         0,
         @sizeOf(Transform) * MAX_TRANSFORMS,
         transforms.ptr,
@@ -235,11 +237,11 @@ pub fn initTransforms(self: *Self, transforms: []const Transform) void {
 
 pub fn submitTransforms(self: *Self, transforms: []const Transform) void {
     _ = self;
-    gl.bufferSubData(
-        c.GL_UNIFORM_BUFFER,
+    gl.BufferSubData(
+        gl.UNIFORM_BUFFER,
         0,
         @sizeOf(Transform) * @as(isize, @intCast(transforms.len)),
         transforms.ptr,
     );
-    gl.drawArraysInstanced(c.GL_TRIANGLES, 0, 6, @intCast(transforms.len));
+    gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(transforms.len));
 }

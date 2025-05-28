@@ -1,5 +1,5 @@
 const std = @import("std");
-const c = @import("../c.zig");
+const c = @import("c");
 const math = @import("math.zig");
 
 const Vec2 = math.Vec2;

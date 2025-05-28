@@ -1,3 +1,4 @@
+//! The C import for the SDL3 libraries.
 pub usingnamespace @cImport({
     @cDefine("SDL_DISABLE_OLDNAMES", {});
     @cInclude("SDL3/SDL.h");

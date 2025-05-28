@@ -1,4 +1,4 @@
-const c = @import("c.zig");
+const c = @import("c");
 const std = @import("std");
 const Input = @import("common/input.zig");
 const GLRenderer = @import("renderer/gl-renderer.zig");

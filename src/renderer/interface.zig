@@ -1,10 +1,11 @@
 const std = @import("std");
-const math = @import("math.zig");
+
+pub const MAX_TRANSFORMS = 1024;
+
+const math = @import("../common/math.zig");
 
 const Vec2 = math.Vec2;
 const IVec2 = math.IVec2;
-
-pub const MAX_TRANSFORMS = 1024;
 
 pub const Transform = struct {
     atlas_offset: IVec2,

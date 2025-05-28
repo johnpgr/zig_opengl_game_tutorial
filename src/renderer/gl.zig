@@ -1,6 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const c = @import("c.zig").c;
+const c = @import("../c.zig");
 
 // OpenGL function pointers
 var glCreateProgram_ptr: ?*const fn () callconv(.C) c_uint = null;
@@ -493,3 +493,5 @@ pub fn uniformBlockBinding(
 ) void {
     glUniformBlockBinding_ptr.?(program, uniformBlockIndex, uniformBlockBinding_);
 }
+
+

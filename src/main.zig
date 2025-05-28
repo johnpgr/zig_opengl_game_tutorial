@@ -1,11 +1,11 @@
-const c = @import("c.zig").c;
 const std = @import("std");
+const c = @import("c.zig");
 const util = @import("util.zig");
-const gl = @import("gl.zig");
+const gl = @import("renderer/gl.zig");
 const Game = @import("game.zig");
-const Input = @import("input.zig");
-const RenderInterface = @import("render-interface.zig");
-const GLRenderer = @import("gl-renderer.zig");
+const Input = @import("common/input.zig");
+const RenderInterface = @import("renderer/interface.zig");
+const GLRenderer = @import("renderer/gl-renderer.zig");
 
 const BumpAllocator = util.BumpAllocator;
 const RenderData = RenderInterface.RenderData;

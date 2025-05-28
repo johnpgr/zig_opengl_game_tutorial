@@ -1,10 +1,8 @@
-const c = @import("c.zig").c;
+const c = @import("c.zig");
 const std = @import("std");
-const Input = @import("input.zig");
-const RenderInterface = @import("render-interface.zig");
-const GLRenderer = @import("gl-renderer.zig");
+const Input = @import("common/input.zig");
+const GLRenderer = @import("renderer/gl-renderer.zig");
 
-const RenderData = RenderInterface.RenderData;
 const Self = @This();
 
 window: *c.SDL_Window,

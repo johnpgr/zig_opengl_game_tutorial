@@ -16,7 +16,7 @@ export fn deinit(system: *const System) callconv(.C) void {
 }
 
 export fn update(system: *const System, game_state: *GameState) callconv(.C) void {
-    system.renderer.render_data.game_camera.position.x = 100;
+    system.renderer.render_data.game_camera.position.x = 0;
     system.renderer.render_data.game_camera.position.y = 0;
 
     _ = game_state;

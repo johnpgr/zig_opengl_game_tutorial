@@ -7,8 +7,8 @@ const System = @import("system.zig");
 const GameState = @import("game-state.zig");
 const RenderData = @import("renderer/interface.zig").RenderData;
 const GLRenderer = @import("renderer/gl-renderer.zig");
-
 const GameLib = @import("lib.zig");
+
 const BumpAllocator = util.BumpAllocator;
 const mb = util.mb;
 

@@ -219,6 +219,7 @@ pub fn init(window: *c.SDL_Window) !Self {
 }
 
 pub fn deinit(self: *Self) void {
+    gl.makeProcTableCurrent(&self.procs);
     _ = c.SDL_GL_DestroyContext(self.context);
     gl.DeleteProgram(self.program_id);
 }

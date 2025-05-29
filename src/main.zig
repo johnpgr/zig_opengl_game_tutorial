@@ -61,6 +61,7 @@ pub fn main() !void {
         @floatFromInt(INITIAL_SCREEN_HEIGHT),
     );
     const game_state = try persistent_storage.alloc(GameState);
+    game_state.init();
 
     const lib_path = if (comptime builtin.os.tag == .windows)
         "game.dll"
@@ -102,35 +103,31 @@ pub fn main() !void {
                 c.SDL_EVENT_QUIT => {
                     system.running = false;
                 },
-                c.SDL_EVENT_KEY_UP => {
-                    const key = event.key.key;
-                    switch (key) {
-                        c.SDLK_ESCAPE => {
-                            system.running = false;
-                        },
-                        c.SDLK_R => {
-                            should_reload = true;
-                            std.debug.print("Reloading library...\n", .{});
-
-                            // First rebuild the library
-                            util.rebuildLibrary(transient_storage.allocator()) catch |err| {
-                                std.debug.print("Failed to rebuild library: {}\n", .{err});
-                                continue; // Skip reload if build failed
-                            };
-
-                            // Small delay to ensure file is written
-                            std.time.sleep(100 * std.time.ns_per_ms);
-                        },
-                        else => {},
-                    }
-                },
-
                 c.SDL_EVENT_WINDOW_RESIZED => {
                     system.screen_dimensions.x = @floatFromInt(event.window.data1);
                     system.screen_dimensions.y = @floatFromInt(event.window.data2);
                 },
                 else => {},
             }
+        }
+
+        // Handle key presses using our new functions
+        if (game_state.keyPressed(c.SDLK_ESCAPE)) {
+            system.running = false;
+        }
+
+        if (game_state.keyPressed(c.SDLK_R)) {
+            should_reload = true;
+            std.debug.print("Reloading library...\n", .{});
+
+            // First rebuild the library
+            util.rebuildLibrary(transient_storage.allocator()) catch |err| {
+                std.debug.print("Failed to rebuild library: {}\n", .{err});
+                continue; // Skip reload if build failed
+            };
+
+            // Small delay to ensure file is written
+            std.time.sleep(100 * std.time.ns_per_ms);
         }
 
         if (game_lib) |lib| {
@@ -141,6 +138,7 @@ pub fn main() !void {
             //TODO: render a default screen or error message
         }
 
+        game_state.update_key_state();
         transient_storage.reset();
     }
 }

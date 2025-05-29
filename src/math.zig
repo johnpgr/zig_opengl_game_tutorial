@@ -1,7 +1,49 @@
 const c = @import("c");
 
-pub const Vec2 = c.SDL_FPoint;
-pub const IVec2 = c.SDL_Point;
+pub const Vec2 = struct {
+    x: f32,
+    y: f32,
+
+    pub fn toIVec2(self: Vec2) IVec2 {
+        return IVec2{ .x = @intCast(self.x), .y = @intCast(self.y) };
+    }
+
+    pub fn sub(self: Vec2, other: Vec2) Vec2 {
+        return Vec2{ .x = self.x - other.x, .y = self.y - other.y };
+    }
+
+    pub fn add(self: Vec2, other: Vec2) Vec2 {
+        return Vec2{ .x = self.x + other.x, .y = self.y + other.y };
+    }
+
+    pub fn div(self: Vec2, divisor: f32) Vec2 {
+        return Vec2{ .x = self.x / divisor, .y = self.y / divisor };
+    }
+};
+
+pub const IVec2 = struct {
+    x: i32,
+    y: i32,
+
+    pub fn toVec2(self: IVec2) Vec2 {
+        return Vec2{ .x = @floatFromInt(self.x), .y = @floatFromInt(self.y) };
+    }
+
+    pub fn sub(self: IVec2, other: IVec2) IVec2 {
+        return IVec2{ .x = self.x - other.x, .y = self.y - other.y };
+    }
+
+    pub fn add(self: IVec2, other: IVec2) IVec2 {
+        return IVec2{ .x = self.x + other.x, .y = self.y + other.y };
+    }
+
+    pub fn div(self: IVec2, divisor: f32) IVec2 {
+        return IVec2{
+            .x = @intCast(@as(f32, @floatFromInt(self.x)) / divisor),
+            .y = @intCast(@as(f32, @floatFromInt(self.y)) / divisor),
+        };
+    }
+};
 
 pub const Vec4 = struct {
     x: f32,
@@ -70,6 +112,14 @@ pub const Mat4 = struct {
     }
     pub fn dw(self: *Mat4) *f32 {
         return &self.data[3][3];
+    }
+
+    pub fn translate(self: *Mat4, x: f32, y: f32, z: f32) Mat4 {
+        var result = self.*;
+        result.aw().* += x;
+        result.bw().* += y;
+        result.cw().* += z;
+        return result;
     }
 
     pub fn orthographicProjection(

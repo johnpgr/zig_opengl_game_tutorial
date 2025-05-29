@@ -37,11 +37,11 @@ pub const BumpAllocator = struct {
     }
 
     pub fn alloc(self: *BumpAllocator, comptime T: type) !*T {
-        return try self.allocator.create(T);
+        return try self.allocator().create(T);
     }
 
     pub fn allocSlice(self: *BumpAllocator, comptime T: type, size: usize) ![]T {
-        return try self.allocator.alloc(T, size);
+        return try self.allocator().alloc(T, size);
     }
 
     pub fn allocator(self: *BumpAllocator) std.mem.Allocator {

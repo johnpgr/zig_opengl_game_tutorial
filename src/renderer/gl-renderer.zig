@@ -48,16 +48,16 @@ pub fn render(self: *Self, w: f32, h: f32) void {
 
     const camera = self.render_data.game_camera;
     var projection_matrix = Mat4.orthographicProjection(
-        camera.position.x - camera.dimensions.x / 2,
-        camera.position.x + camera.dimensions.x / 2,
-        camera.position.y - camera.dimensions.y / 2,
-        camera.position.y + camera.dimensions.y / 2,
+        -camera.position.x - camera.dimensions.x / 2,
+        -camera.position.x + camera.dimensions.x / 2,
+        -camera.position.y - camera.dimensions.y / 2,
+        -camera.position.y + camera.dimensions.y / 2,
     );
     gl.UniformMatrix4fv(
         self.gl_program.projection_matrix_id,
         1,
         gl.FALSE,
-        &projection_matrix.data[0][0],
+        projection_matrix.ax(),
     );
 
     if (self.render_data.transform_count > 0) {
@@ -67,14 +67,14 @@ pub fn render(self: *Self, w: f32, h: f32) void {
     }
 }
 
-pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2, size: Vec2) void {
+pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {
     const sprite = Sprite.fromId(sprite_id);
 
     const transform = Transform{
         .atlas_offset = sprite.atlas_offset,
         .sprite_size = sprite.sprite_size,
-        .pos = pos,
-        .size = size,
+        .pos = pos.sub(sprite.sprite_size.toVec2()).div(2),
+        .size = sprite.sprite_size.toVec2(),
     };
 
     self.render_data.transforms[@intCast(self.render_data.transform_count)] = transform;

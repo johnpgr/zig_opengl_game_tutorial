@@ -224,8 +224,8 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn clear(self: *Self, window_w: f32, window_h: f32) void {
-    gl.ClearColor(119.0 / 255.0, 33.0 / 255.0, 111.0 / 255.0, 1.0);
-    gl.ClearDepth(0.0);
+    gl.ClearColor(0.4, 0.5, 1.0, 1.0);
+    gl.ClearDepth(0);
     gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // Set the viewport to the current window size
     gl.Viewport(0, 0, @intFromFloat(window_w), @intFromFloat(window_h));

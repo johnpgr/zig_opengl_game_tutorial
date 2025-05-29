@@ -13,14 +13,12 @@ frame_count: u32,
 delta_time: f32,
 
 pub fn init(
-    allocator: std.mem.Allocator,
+    self: *Self,
     window: *c.SDL_Window,
     renderer: *GLRenderer,
     screen_w: f32,
     screen_h: f32,
-) !*Self {
-    const self = try allocator.create(Self);
-
+) void {
     self.* = .{
         .window = window,
         .renderer = renderer,
@@ -29,6 +27,4 @@ pub fn init(
         .frame_count = 0,
         .delta_time = 0.0,
     };
-
-    return self;
 }

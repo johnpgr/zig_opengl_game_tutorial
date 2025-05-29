@@ -43,22 +43,24 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyWindow(window);
 
-    const render_data = try RenderData.init(persistent_storage.allocator(), .{
-        .x = @floatFromInt(INITIAL_SCREEN_WIDTH),
-        .y = @floatFromInt(INITIAL_SCREEN_HEIGHT),
+    const render_data = try persistent_storage.alloc(RenderData);
+    RenderData.init(render_data, .{
+        .x = @floatFromInt(WORLD_WIDTH),
+        .y = @floatFromInt(WORLD_HEIGHT),
     });
 
     var renderer = try GLRenderer.init(window, render_data);
     defer renderer.deinit();
 
-    const system = try System.init(
-        persistent_storage.allocator(),
+    const system = try persistent_storage.alloc(System);
+    System.init(
+        system,
         window,
         &renderer,
         @floatFromInt(INITIAL_SCREEN_WIDTH),
         @floatFromInt(INITIAL_SCREEN_HEIGHT),
     );
-    const game_state = try GameState.init(persistent_storage.allocator());
+    const game_state = try persistent_storage.alloc(GameState);
 
     const lib_path = if (comptime builtin.os.tag == .windows)
         "game.dll"

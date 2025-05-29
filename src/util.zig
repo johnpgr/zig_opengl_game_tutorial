@@ -133,3 +133,57 @@ pub fn getSharedLibExt() []const u8 {
         return ".so";
     }
 }
+
+pub fn getLastModified(path: []const u8) !i128 {
+    const file = std.fs.cwd().openFile(path, .{}) catch return 0;
+    defer file.close();
+    const stat = try file.stat();
+    return stat.mtime;
+}
+
+pub fn rebuildLibrary(allocator: std.mem.Allocator) !void {
+    const build_args = &[_][]const u8{
+        "zig",
+        "build",
+        "-Dlib-only",
+    };
+
+    var child = std.process.Child.init(build_args, allocator);
+    child.stdout_behavior = .Pipe;
+    child.stderr_behavior = .Pipe;
+
+    try child.spawn();
+
+    const stdout = try child.stdout.?.readToEndAlloc(
+        allocator,
+        1024 * 1024,
+    );
+    defer allocator.free(stdout);
+
+    const stderr = try child.stderr.?.readToEndAlloc(
+        allocator,
+        1024 * 1024,
+    );
+    defer allocator.free(stderr);
+
+    const term = try child.wait();
+
+    switch (term) {
+        .Exited => |code| {
+            if (code == 0) {
+                std.debug.print("Build successful!\n", .{});
+                if (stdout.len > 0) {
+                    std.debug.print("Build output: {s}\n", .{stdout});
+                }
+            } else {
+                std.debug.print("Build failed with exit code: {}\n", .{code});
+                if (stderr.len > 0) {
+                    std.debug.print("Build error: {s}\n", .{stderr});
+                }
+            }
+        },
+        else => {
+            std.debug.print("Build process terminated abnormally\n", .{});
+        },
+    }
+}

@@ -1,8 +1,8 @@
 const std = @import("std");
 const c = @import("c");
 const gl = @import("gl");
-const assets = @import("../common/assets.zig");
-const math = @import("../common/math.zig");
+const assets = @import("../assets.zig");
+const math = @import("../math.zig");
 const renderer_interface = @import("interface.zig");
 const GLProgram = @import("gl-program.zig");
 

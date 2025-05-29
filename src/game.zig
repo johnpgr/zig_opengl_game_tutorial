@@ -1,40 +1,25 @@
 const c = @import("c");
 const std = @import("std");
-const Input = @import("common/input.zig");
-const GLRenderer = @import("renderer/gl-renderer.zig");
+const Context = @import("context.zig").Context;
 
-const Self = @This();
-
-window: *c.SDL_Window,
-renderer: *GLRenderer,
-input: *Input,
-running: bool,
-
-pub fn handleEvent(self: *Self, event: *c.SDL_Event) void {
-    while (c.SDL_PollEvent(event)) {
-        switch (event.type) {
-            c.SDL_EVENT_QUIT => {
-                self.running = false;
-            },
-            c.SDL_EVENT_KEY_UP => {
-                const key = event.key.key;
-                switch (key) {
-                    c.SDLK_ESCAPE => {
-                        self.running = false;
-                    },
-                    else => {},
-                }
-            },
-            c.SDL_EVENT_WINDOW_RESIZED => {
-                self.input.screen_size.x = @floatFromInt(event.window.data1);
-                self.input.screen_size.y = @floatFromInt(event.window.data2);
-            },
-            else => {},
-        }
-    }
+export fn init(ctx: *Context) callconv(.C) void {
+    // TODO Initialize game here
+    _ = ctx;
+    std.debug.print("Game initialized\n", .{});
 }
 
-pub fn update(self: *Self) void {
+export fn deinit(ctx: *Context) callconv(.C) void {
+    // TODO Deinitialize game here
+    _ = ctx;
+    std.debug.print("Game deinitialized\n", .{});
+}
+
+export fn update(ctx: *Context) callconv(.C) void {
+    // TODO: Update the game here
+    _ = ctx;
+}
+
+export fn draw(ctx: *Context) callconv(.C) void {
     const cols: u32 = 16;
     const gap: f32 = 10.0;
     const sprite_size: f32 = 64.0;
@@ -43,7 +28,7 @@ pub fn update(self: *Self) void {
         const row = @divFloor(@as(u32, @intCast(i)), cols);
         const col = @mod(@as(u32, @intCast(i)), cols);
 
-        self.renderer.drawSprite(
+        ctx.renderer.drawSprite(
             .DICE,
             .{
                 .x = gap + @as(f32, @floatFromInt(col)) * (sprite_size + gap),
@@ -52,9 +37,7 @@ pub fn update(self: *Self) void {
             .{ .x = sprite_size, .y = sprite_size },
         );
     }
-}
 
-pub fn render(self: *Self) void {
-    self.renderer.render(self.input.screen_size.x, self.input.screen_size.y);
-    _ = c.SDL_GL_SwapWindow(self.window);
+    ctx.renderer.render(ctx.screen_w, ctx.screen_h);
+    _ = c.SDL_GL_SwapWindow(ctx.window);
 }

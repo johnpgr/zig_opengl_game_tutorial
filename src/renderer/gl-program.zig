@@ -2,10 +2,9 @@ const std = @import("std");
 const builtin = @import("builtin");
 const gl = @import("gl");
 const c = @import("c");
-const assets = @import("../common/assets.zig");
-const math = @import("../common/math.zig");
+const assets = @import("../assets.zig");
+const math = @import("../math.zig");
 const renderer_interface = @import("interface.zig");
-const glDebugCallback = @import("debug-callback.zig").glDebugCallback;
 
 const Transform = renderer_interface.Transform;
 const RenderData = renderer_interface.Transform;
@@ -251,4 +250,37 @@ pub fn submitTransforms(self: *Self, transforms: []const Transform) void {
         transforms.ptr,
     );
     gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(transforms.len));
+}
+
+pub fn glDebugCallback(
+    source: c_uint,
+    type_: c_uint,
+    id: c_uint,
+    severity: c_uint,
+    length: c_int,
+    message: [*c]const u8,
+    user: ?*const anyopaque,
+) callconv(.C) void {
+    _ = user; // Unused parameter, can be used for custom data if needed
+
+    // macOS does not support OpenGL debug callbacks, so we can skip this
+    if (comptime builtin.target.os.tag == .macos) {
+        return;
+    }
+
+    if (severity == gl.DEBUG_SEVERITY_HIGH and
+        severity == gl.DEBUG_SEVERITY_MEDIUM and
+        severity == gl.DEBUG_SEVERITY_LOW)
+    {
+        std.debug.print(
+            "OpenGL Debug Message: {s}\n",
+            .{message[0..@as(usize, @intCast(length))]},
+        );
+        std.debug.assert(false);
+    } else {
+        std.debug.print(
+            "OpenGL Debug Message (ID: {}, Type: {}, Source: {}): {s}\n",
+            .{ id, type_, source, message[0..@as(usize, @intCast(length))] },
+        );
+    }
 }

@@ -3,17 +3,20 @@ const builtin = @import("builtin");
 const c = @import("c");
 const util = @import("util.zig");
 const Game = @import("game.zig");
-const Context = @import("context.zig").Context;
+const System = @import("system.zig");
+const GameState = @import("game-state.zig");
 const RenderData = @import("renderer/interface.zig").RenderData;
 const GLRenderer = @import("renderer/gl-renderer.zig");
 
-const GameLib = @import("lib.zig").GameLib;
-const loadLibrary = @import("lib.zig").loadLibrary;
+const GameLib = @import("lib.zig");
 const BumpAllocator = util.BumpAllocator;
 const mb = util.mb;
 
 const INITIAL_SCREEN_WIDTH = 1280;
 const INITIAL_SCREEN_HEIGHT = 720;
+const WORLD_WIDTH = 320;
+const WORLD_HEIGHT = 180;
+const TILE_SIZE = 16;
 
 pub fn main() !void {
     var transient_storage = try BumpAllocator.init(mb(50));
@@ -40,17 +43,22 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyWindow(window);
 
-    const render_data = try RenderData.init(persistent_storage.allocator());
+    const render_data = try RenderData.init(persistent_storage.allocator(), .{
+        .x = @floatFromInt(INITIAL_SCREEN_WIDTH),
+        .y = @floatFromInt(INITIAL_SCREEN_HEIGHT),
+    });
 
     var renderer = try GLRenderer.init(window, render_data);
     defer renderer.deinit();
 
-    var context = try Context.init(
+    const system = try System.init(
+        persistent_storage.allocator(),
         window,
         &renderer,
         @floatFromInt(INITIAL_SCREEN_WIDTH),
         @floatFromInt(INITIAL_SCREEN_HEIGHT),
     );
+    const game_state = try GameState.init(persistent_storage.allocator());
 
     const lib_path = if (comptime builtin.os.tag == .windows)
         "game.dll"
@@ -62,36 +70,26 @@ pub fn main() !void {
     var should_reload = true;
     var game_lib: ?GameLib = null;
     defer if (game_lib) |*lib| {
-        lib.deinit_fn(&context);
+        lib.deinit_fn(system);
         lib.lib.close();
     };
 
     _ = c.SDL_ShowWindow(window);
 
-    while (context.running) {
+    while (system.running) {
         if (should_reload) {
             if (game_lib) |*lib| {
-                lib.deinit_fn(&context);
+                lib.deinit_fn(system);
                 lib.lib.close();
             }
 
-            if (loadLibrary(transient_storage.allocator(), lib_path)) |loaded| {
-                const last_modified = util.getLastModified(lib_path) catch 0;
-                game_lib = GameLib{
-                    .lib = loaded.lib,
-                    .path = lib_path,
-                    .last_modified = last_modified,
-                    .init_fn = loaded.init_fn,
-                    .deinit_fn = loaded.deinit_fn,
-                    .update_fn = loaded.update_fn,
-                    .draw_fn = loaded.draw_fn,
-                };
-                game_lib.?.init_fn(&context);
-                std.debug.print("Game Library loaded.\n", .{});
-            } else |err| {
-                std.debug.print("Failed to load game library: {}\n", .{err});
-            }
+            game_lib = GameLib.load(transient_storage.allocator(), lib_path) catch |e| {
+                std.debug.print("Failed to load game library: {}\n", .{e});
+                continue;
+            };
 
+            std.debug.print("Game library loaded successfully: {s}\n", .{game_lib.?.path});
+            game_lib.?.init_fn(system);
             should_reload = false;
         }
 
@@ -100,13 +98,13 @@ pub fn main() !void {
         while (c.SDL_PollEvent(&event)) {
             switch (event.type) {
                 c.SDL_EVENT_QUIT => {
-                    context.running = false;
+                    system.running = false;
                 },
                 c.SDL_EVENT_KEY_UP => {
                     const key = event.key.key;
                     switch (key) {
                         c.SDLK_ESCAPE => {
-                            context.running = false;
+                            system.running = false;
                         },
                         c.SDLK_R => {
                             should_reload = true;
@@ -126,19 +124,18 @@ pub fn main() !void {
                 },
 
                 c.SDL_EVENT_WINDOW_RESIZED => {
-                    context.screen_w = @floatFromInt(event.window.data1);
-                    context.screen_h = @floatFromInt(event.window.data2);
+                    system.screen_dimensions.x = @floatFromInt(event.window.data1);
+                    system.screen_dimensions.y = @floatFromInt(event.window.data2);
                 },
                 else => {},
             }
         }
 
         if (game_lib) |lib| {
-            lib.update_fn(&context);
-            lib.draw_fn(&context);
+            lib.update_fn(system, game_state);
+            lib.draw_fn(system, game_state);
         } else {
-            std.debug.print("No game library loaded.\n", .{});
-            context.renderer.gl_program.clear(context.screen_w, context.screen_h);
+            system.renderer.gl_program.clear(system.screen_dimensions.x, system.screen_dimensions.y);
             //TODO: render a default screen or error message
         }
 

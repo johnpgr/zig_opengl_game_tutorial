@@ -21,6 +21,7 @@ context: c.SDL_GLContext = null,
 program_id: c_uint = 0,
 texture_id: c_uint = 0,
 screen_size_id: c_int = 0,
+projection_matrix_id: c_int = 0,
 vao: c_uint = 0,
 ubo: c_uint = 0,
 
@@ -162,9 +163,9 @@ pub fn init(window: *c.SDL_Window) !Self {
 
     // Texture atlas
     const texture = try assets.loadTexture("TEXTURE_ATLAS.png");
-    const texture_location = gl.GetUniformLocation(self.program_id, "textureAtlas");
+    const texture_location = gl.GetUniformLocation(self.program_id, "texture_atlas");
     if (texture_location == -1) {
-        std.debug.print("Failed to get uniform location for textureAtlas\n", .{});
+        std.debug.print("Failed to get uniform location for texture_atlas\n", .{});
         return error.TextureUniformLocationNotFound;
     }
     gl.Uniform1i(texture_location, 0);
@@ -204,8 +205,9 @@ pub fn init(window: *c.SDL_Window) !Self {
         gl.DYNAMIC_DRAW,
     );
 
-    // Screen size uniform
-    self.screen_size_id = gl.GetUniformLocation(self.program_id, "screenSize");
+    // Uniform locations
+    self.screen_size_id = gl.GetUniformLocation(self.program_id, "screen_size");
+    self.projection_matrix_id = gl.GetUniformLocation(self.program_id, "projection_matrix");
 
     // Vertex attributes
     gl.Enable(gl.FRAMEBUFFER_SRGB);

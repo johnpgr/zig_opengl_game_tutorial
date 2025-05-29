@@ -1,29 +1,25 @@
 const std = @import("std");
+const util = @import("util.zig");
 const builtin = @import("builtin");
-const Context = @import("context.zig").Context;
+const System = @import("system.zig");
+const GameState = @import("game-state.zig");
 
-pub const InitFn = *const fn (ctx: *const Context) callconv(.C) void;
-pub const DeinitFn = *const fn (ctx: *const Context) callconv(.C) void;
-pub const UpdateFn = *const fn (ctx: *const Context) callconv(.C) void;
-pub const DrawFn = *const fn (ctx: *const Context) callconv(.C) void;
+const Self = @This();
 
-pub const GameLib = struct {
-    lib: std.DynLib,
-    path: []const u8,
-    last_modified: i128,
-    init_fn: InitFn,
-    deinit_fn: DeinitFn,
-    update_fn: UpdateFn,
-    draw_fn: DrawFn,
-};
+pub const InitFn = *const fn (system: *const System) callconv(.C) void;
+pub const DeinitFn = *const fn (system: *const System) callconv(.C) void;
+pub const UpdateFn = *const fn (system: *const System, game_state: *GameState) callconv(.C) void;
+pub const DrawFn = *const fn (system: *const System, game_state: *GameState) callconv(.C) void;
 
-pub fn loadLibrary(allocator: std.mem.Allocator, path: []const u8) !struct {
-    lib: std.DynLib,
-    init_fn: InitFn,
-    deinit_fn: DeinitFn,
-    update_fn: UpdateFn,
-    draw_fn: DrawFn,
-} {
+lib: std.DynLib,
+path: []const u8,
+last_modified: i128,
+init_fn: InitFn,
+deinit_fn: DeinitFn,
+update_fn: UpdateFn,
+draw_fn: DrawFn,
+
+pub fn load(allocator: std.mem.Allocator, path: []const u8) !Self {
     var lib: std.DynLib = undefined;
 
     if (comptime builtin.os.tag == .windows) {
@@ -47,6 +43,8 @@ pub fn loadLibrary(allocator: std.mem.Allocator, path: []const u8) !struct {
     const draw_fn = lib.lookup(DrawFn, "draw").?;
 
     return .{
+        .path = path,
+        .last_modified = util.getLastModified(path) catch 0,
         .lib = lib,
         .init_fn = init_fn,
         .deinit_fn = deinit_fn,

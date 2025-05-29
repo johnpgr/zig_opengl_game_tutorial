@@ -11,9 +11,10 @@ layout(std140) uniform TransformUBO {
     Transform transforms[1024];
 };
 
-uniform vec2 screenSize;
+uniform vec2 screen_size;
+uniform mat4 projection_matrix;
 
-layout(location = 0) out vec2 textureCoordsIn;
+layout(location = 0) out vec2 texture_coords;
 
 void main() {
     Transform transform = transforms[gl_InstanceID];
@@ -32,7 +33,7 @@ void main() {
     float right = left + transform.sprite_size.x;
     float bottom = top + transform.sprite_size.y;
 
-    vec2 textureCoords[6] = vec2[6](
+    vec2 coords_normal[6] = vec2[6](
         // Triangle 1
         vec2(left, top),     // top left
         vec2(left, bottom),  // bottom left  
@@ -43,10 +44,8 @@ void main() {
         vec2(right, bottom)  // bottom right
     );
 
-    // gl_Position = vec4(vertices[gl_VertexID], 1.0, 1.0);
     vec2 pos = vertices[gl_VertexID];
-    pos.y = -pos.y + screenSize.y;
-    pos = 2.0 * (pos / screenSize) - 1.0;
-    gl_Position = vec4(pos, 0.0, 1.0);
-    textureCoordsIn = textureCoords[gl_VertexID];
+    gl_Position = projection_matrix * vec4(pos, 0.0, 1.0);
+
+    texture_coords = coords_normal[gl_VertexID];
 }

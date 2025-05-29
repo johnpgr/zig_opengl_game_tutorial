@@ -13,6 +13,7 @@ const Sprite = assets.Sprite;
 const SpriteID = assets.SpriteID;
 const Vec2 = math.Vec2;
 const IVec2 = math.IVec2;
+const Mat4 = math.Mat4;
 
 const Self = @This();
 
@@ -44,6 +45,21 @@ pub fn render(self: *Self, w: f32, h: f32) void {
     gl.makeProcTableCurrent(&self.gl_program.procs);
 
     self.gl_program.clear(w, h);
+
+    const camera = self.render_data.game_camera;
+    var projection_matrix = Mat4.orthographicProjection(
+        camera.position.x - camera.dimensions.x / 2,
+        camera.position.x + camera.dimensions.x / 2,
+        camera.position.y - camera.dimensions.y / 2,
+        camera.position.y + camera.dimensions.y / 2,
+    );
+    gl.UniformMatrix4fv(
+        self.gl_program.projection_matrix_id,
+        1,
+        gl.FALSE,
+        &projection_matrix.data[0][0],
+    );
+
     if (self.render_data.transform_count > 0) {
         self.gl_program.submitTransforms(self.render_data.transforms[0..self.render_data.transform_count]);
         // Reset transform count for the next frame

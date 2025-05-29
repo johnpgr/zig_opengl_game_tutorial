@@ -18,23 +18,18 @@ pub inline fn gb(comptime x: usize) usize {
 }
 
 pub const BumpAllocator = struct {
-    buffer: []u8,
     fba: std.heap.FixedBufferAllocator,
 
     pub fn init(size: usize) !BumpAllocator {
         const buffer = try std.heap.page_allocator.alloc(u8, size);
-        return BumpAllocator{
-            .buffer = buffer,
+
+        return .{
             .fba = std.heap.FixedBufferAllocator.init(buffer),
         };
     }
 
     pub fn deinit(self: *BumpAllocator) void {
-        std.heap.page_allocator.free(self.buffer);
-    }
-
-    pub fn allocator(self: *BumpAllocator) std.mem.Allocator {
-        return self.fba.allocator();
+        std.heap.page_allocator.free(self.fba.buffer);
     }
 
     pub fn reset(self: *BumpAllocator) void {
@@ -42,11 +37,15 @@ pub const BumpAllocator = struct {
     }
 
     pub fn alloc(self: *BumpAllocator, comptime T: type) !*T {
-        return try self.fba.allocator().create(T);
+        return try self.allocator.create(T);
     }
 
     pub fn allocSlice(self: *BumpAllocator, comptime T: type, size: usize) ![]T {
-        return try self.fba.allocator().alloc(T, size);
+        return try self.allocator.alloc(T, size);
+    }
+
+    pub fn allocator(self: *BumpAllocator) std.mem.Allocator {
+        return self.fba.allocator();
     }
 };
 

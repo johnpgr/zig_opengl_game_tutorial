@@ -19,8 +19,8 @@ pub fn main() !void {
     var transient_storage = try BumpAllocator.init(mb(50));
     defer transient_storage.deinit();
 
-    // var persistent_storage = try BumpAllocator.init(mb(50));
-    // defer persistent_storage.deinit();
+    var persistent_storage = try BumpAllocator.init(mb(50));
+    defer persistent_storage.deinit();
 
     // Create SDL window and OpenGL context here
     if (!c.SDL_Init(c.SDL_INIT_VIDEO)) {
@@ -40,7 +40,7 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyWindow(window);
 
-    const render_data = try RenderData.init(transient_storage.allocator());
+    const render_data = try RenderData.init(persistent_storage.allocator());
 
     var renderer = try GLRenderer.init(window, render_data);
     defer renderer.deinit();

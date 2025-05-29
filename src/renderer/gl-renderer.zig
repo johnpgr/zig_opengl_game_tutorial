@@ -48,8 +48,8 @@ pub fn render(self: *Self, w: f32, h: f32) void {
 
     const camera = self.render_data.game_camera;
     var projection_matrix = Mat4.orthographicProjection(
-        -camera.position.x - camera.dimensions.x / 2,
-        -camera.position.x + camera.dimensions.x / 2,
+        camera.position.x - camera.dimensions.x / 2,
+        camera.position.x + camera.dimensions.x / 2,
         -camera.position.y - camera.dimensions.y / 2,
         -camera.position.y + camera.dimensions.y / 2,
     );

@@ -130,13 +130,16 @@ pub const Mat4 = struct {
     ) Mat4 {
         var result = Mat4{};
 
-        result.aw().* = -(right + left) / (right - left);
-        result.bw().* = (top + bottom) / (top - bottom);
-        result.cw().* = 0.0; // Near Plane
+        // Set scale components
         result.data[0][0] = 2.0 / (right - left);
         result.data[1][1] = 2.0 / (top - bottom);
-        result.data[2][2] = 1.0 / (1.0 - 0.0); // Far and Near
+        result.data[2][2] = 1.0; // Far/(far-near) with near=0, far=1
         result.data[3][3] = 1.0;
+
+        // Set translation in last column (column-major layout)
+        result.dx().* = -(right + left) / (right - left);
+        result.dy().* = -(top + bottom) / (top - bottom);
+        result.dz().* = -0.0; // No depth translation for 2D
 
         return result;
     }

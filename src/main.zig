@@ -12,10 +12,10 @@ const GameLib = @import("lib.zig");
 const BumpAllocator = util.BumpAllocator;
 const mb = util.mb;
 
-const INITIAL_SCREEN_WIDTH = 1280;
-const INITIAL_SCREEN_HEIGHT = 720;
 const WORLD_WIDTH = 320;
 const WORLD_HEIGHT = 180;
+const INITIAL_SCREEN_WIDTH = WORLD_WIDTH * 4;
+const INITIAL_SCREEN_HEIGHT = WORLD_HEIGHT * 4;
 const TILE_SIZE = 16;
 
 pub fn main() !void {
@@ -63,9 +63,9 @@ pub fn main() !void {
     const game_state = try persistent_storage.alloc(GameState);
     game_state.init();
 
-    const lib_path = if (comptime builtin.os.tag == .windows)
+    const lib_path = comptime if (builtin.os.tag == .windows)
         "game.dll"
-    else if (comptime builtin.os.tag == .macos)
+    else if (builtin.os.tag == .macos)
         "zig-out/lib/libgame.dylib"
     else
         "zig-out/lib/libgame.so";
@@ -107,6 +107,17 @@ pub fn main() !void {
                     system.screen_dimensions.x = @floatFromInt(event.window.data1);
                     system.screen_dimensions.y = @floatFromInt(event.window.data2);
                 },
+                c.SDL_EVENT_MOUSE_MOTION => {
+                    const screen_x = event.motion.x;
+                    const screen_y = event.motion.y;
+
+                    game_state.updateMousePosition(
+                        screen_x,
+                        screen_y,
+                        &render_data.game_camera,
+                        system.screen_dimensions,
+                    );
+                },
                 else => {},
             }
         }
@@ -128,6 +139,19 @@ pub fn main() !void {
 
             // Small delay to ensure file is written
             std.time.sleep(100 * std.time.ns_per_ms);
+        }
+
+        if(game_state.keyDown(c.SDLK_A)){
+            game_state.player_pos.x -= 0.1;
+        }
+        if(game_state.keyDown(c.SDLK_D)){
+            game_state.player_pos.x += 0.1;
+        }
+        if(game_state.keyDown(c.SDLK_W)){
+            game_state.player_pos.y -= 0.1;
+        }
+        if(game_state.keyDown(c.SDLK_S)){
+            game_state.player_pos.y += 0.1;
         }
 
         if (game_lib) |lib| {

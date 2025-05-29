@@ -262,6 +262,8 @@ pub fn render(self: *Self, w: f32, h: f32) void {
         // Reset transform count for the next frame
         self.data.transform_count = 0;
     }
+
+    _ = c.SDL_GL_SwapWindow(self.window);
 }
 
 pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {

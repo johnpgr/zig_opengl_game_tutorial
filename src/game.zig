@@ -23,10 +23,6 @@ export fn update(system: *const System, game_state: *GameState) callconv(.C) voi
 }
 
 export fn draw(system: *const System, game_state: *GameState) callconv(.C) void {
-    _ = game_state;
-
-    system.renderer.drawSprite(.DICE, .{ .x = 0, .y = 0 });
-
+    system.renderer.drawSprite(.DICE, game_state.player_pos);
     system.renderer.render(system.screen_dimensions.x, system.screen_dimensions.y);
-    _ = c.SDL_GL_SwapWindow(system.window);
 }

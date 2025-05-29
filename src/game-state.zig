@@ -1,5 +1,6 @@
 const c = @import("c");
 const std = @import("std");
+const OrthographicCamera2d = @import("gpu-data.zig").OrthographicCamera2d;
 const Vec2 = @import("math.zig").Vec2;
 
 const Self = @This();
@@ -83,4 +84,44 @@ pub fn keyDown(self: *Self, key: c.SDL_Keycode) bool {
     const idx: usize = @intCast(scancode);
     // Key is down if it's currently pressed
     return key_state_curr[idx];
+}
+
+pub fn updateMousePosition(
+    self: *Self,
+    screen_x: f32,
+    screen_y: f32,
+    camera: *const OrthographicCamera2d,
+    screen_dimensions: Vec2,
+) void {
+    // Store the previous positions
+    self.mouse_pos_prev = self.mouse_pos;
+    self.mouse_pos_world_prev = self.mouse_pos_world;
+
+    // Update current screen position
+    self.mouse_pos = .{ .x = screen_x, .y = screen_y };
+
+    // Convert screen coordinates to normalized device coordinates (0 to 1)
+    const ndc_x = screen_x / screen_dimensions.x;
+    const ndc_y = screen_y / screen_dimensions.y;
+
+    // Convert NDC to world coordinates accounting for camera position and zoom
+    const world_x = camera.position.x + (ndc_x * camera.dimensions.x) / camera.zoom;
+    const world_y = camera.position.y + (ndc_y * camera.dimensions.y) / camera.zoom;
+
+    self.mouse_pos_world = .{ .x = world_x, .y = world_y };
+
+    // Calculate relative movement
+    self.mouse_pos_rel = .{
+        .x = self.mouse_pos.x - self.mouse_pos_prev.x,
+        .y = self.mouse_pos.y - self.mouse_pos_prev.y,
+    };
+    self.mouse_pos_world_rel = .{
+        .x = self.mouse_pos_world.x - self.mouse_pos_world_prev.x,
+        .y = self.mouse_pos_world.y - self.mouse_pos_world_prev.y,
+    };
+
+    std.debug.print("Mouse World Pos: {}, {}\n", .{
+        self.mouse_pos_world.x,
+        self.mouse_pos_world.y,
+    });
 }

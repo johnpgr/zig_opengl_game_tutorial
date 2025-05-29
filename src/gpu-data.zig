@@ -2,10 +2,8 @@ const std = @import("std");
 
 pub const MAX_TRANSFORMS = 1024;
 
-const math = @import("../math.zig");
-
-const Vec2 = math.Vec2;
-const IVec2 = math.IVec2;
+const Vec2 = @import("math.zig").Vec2;
+const IVec2 = @import("math.zig").IVec2;
 
 pub const OrthographicCamera2d = struct {
     zoom: f32 = 1.0,

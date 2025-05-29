@@ -5,8 +5,8 @@ const util = @import("util.zig");
 const Game = @import("game.zig");
 const System = @import("system.zig");
 const GameState = @import("game-state.zig");
-const RenderData = @import("renderer/interface.zig").RenderData;
-const GLRenderer = @import("renderer/gl-renderer.zig");
+const RenderData = @import("gpu-data.zig").RenderData;
+const GLRenderer = @import("gl-renderer.zig");
 const GameLib = @import("lib.zig");
 
 const BumpAllocator = util.BumpAllocator;
@@ -134,7 +134,7 @@ pub fn main() !void {
             lib.update_fn(system, game_state);
             lib.draw_fn(system, game_state);
         } else {
-            system.renderer.gl_program.clear(system.screen_dimensions.x, system.screen_dimensions.y);
+            system.renderer.clear(system.screen_dimensions.x, system.screen_dimensions.y);
             //TODO: render a default screen or error message
         }
 

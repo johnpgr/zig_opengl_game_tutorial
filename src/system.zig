@@ -1,6 +1,6 @@
 const c = @import("c");
 const std = @import("std");
-const GLRenderer = @import("renderer/gl-renderer.zig");
+const GLRenderer = @import("gl-renderer.zig");
 const Vec2 = @import("math.zig").Vec2;
 
 const Self = @This();

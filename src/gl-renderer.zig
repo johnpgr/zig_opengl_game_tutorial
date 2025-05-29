@@ -1,21 +1,20 @@
 const std = @import("std");
-const builtin = @import("builtin");
-const gl = @import("gl");
 const c = @import("c");
-const assets = @import("../assets.zig");
-const math = @import("../math.zig");
-const renderer_interface = @import("interface.zig");
-
-const Transform = renderer_interface.Transform;
-const RenderData = renderer_interface.Transform;
-const MAX_TRANSFORMS = renderer_interface.MAX_TRANSFORMS;
-const Sprite = assets.Sprite;
-const SpriteID = assets.SpriteID;
-const Vec2 = math.Vec2;
-const IVec2 = math.IVec2;
+const gl = @import("gl");
+const builtin = @import("builtin");
+const assets = @import("assets.zig");
+const Transform = @import("gpu-data.zig").Transform;
+const RenderData = @import("gpu-data.zig").RenderData;
+const MAX_TRANSFORMS = @import("gpu-data.zig").MAX_TRANSFORMS;
+const Sprite = @import("assets.zig").Sprite;
+const SpriteID = @import("assets.zig").SpriteID;
+const Vec2 = @import("math.zig").Vec2;
+const IVec2 = @import("math.zig").IVec2;
+const Mat4 = @import("math.zig").Mat4;
 
 const Self = @This();
 
+// OpenGL state (merged from GLProgram)
 procs: gl.ProcTable = undefined,
 context: c.SDL_GLContext = null,
 program_id: c_uint = 0,
@@ -25,9 +24,17 @@ projection_matrix_id: c_int = 0,
 vao: c_uint = 0,
 ubo: c_uint = 0,
 
-pub fn init(window: *c.SDL_Window) !Self {
-    var self = Self{};
+// Renderer state
+data: *RenderData,
+window: *c.SDL_Window,
 
+pub fn init(window: *c.SDL_Window, render_data: *RenderData) !Self {
+    var self = Self{
+        .data = render_data,
+        .window = window,
+    };
+
+    // Initialize OpenGL context and resources (merged from GLProgram.init)
     if (!c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MAJOR_VERSION, gl.info.version_major))
         return error.MajorVersionSettingFailed;
     if (!c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MINOR_VERSION, gl.info.version_minor))
@@ -88,8 +95,8 @@ pub fn init(window: *c.SDL_Window) !Self {
     errdefer gl.DeleteProgram(self.program_id);
 
     {
-        const vert_shader = @embedFile("../shaders/quad.vert.glsl");
-        const frag_shader = @embedFile("../shaders/quad.frag.glsl");
+        const vert_shader = @embedFile("shaders/quad.vert.glsl");
+        const frag_shader = @embedFile("shaders/quad.frag.glsl");
         var success: c_int = 0;
         var info_log_buf: [1024:0]u8 = undefined;
 
@@ -215,6 +222,9 @@ pub fn init(window: *c.SDL_Window) !Self {
     gl.Enable(gl.DEPTH_TEST);
     gl.DepthFunc(gl.GREATER);
 
+    // Initialize transforms
+    initTransforms(&self, render_data.transforms[0..]);
+
     return self;
 }
 
@@ -222,6 +232,50 @@ pub fn deinit(self: *Self) void {
     gl.makeProcTableCurrent(&self.procs);
     _ = c.SDL_GL_DestroyContext(self.context);
     gl.DeleteProgram(self.program_id);
+}
+
+pub fn render(self: *Self, w: f32, h: f32) void {
+    if (!c.SDL_GL_MakeCurrent(self.window, self.context)) {
+        std.debug.print("Failed to make OpenGL context current in clear: {s}\n", .{c.SDL_GetError()});
+        return;
+    }
+    gl.makeProcTableCurrent(&self.procs);
+
+    clear(self, w, h);
+
+    const camera = self.data.game_camera;
+    var projection_matrix = Mat4.orthographicProjection(
+        camera.position.x - camera.dimensions.x / 2,
+        camera.position.x + camera.dimensions.x / 2,
+        -camera.position.y - camera.dimensions.y / 2,
+        -camera.position.y + camera.dimensions.y / 2,
+    );
+    gl.UniformMatrix4fv(
+        self.projection_matrix_id,
+        1,
+        gl.FALSE,
+        projection_matrix.ax(),
+    );
+
+    if (self.data.transform_count > 0) {
+        submitTransforms(self, self.data.transforms[0..self.data.transform_count]);
+        // Reset transform count for the next frame
+        self.data.transform_count = 0;
+    }
+}
+
+pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {
+    const sprite = Sprite.fromId(sprite_id);
+
+    const transform = Transform{
+        .atlas_offset = sprite.atlas_offset,
+        .sprite_size = sprite.sprite_size,
+        .pos = pos.sub(sprite.sprite_size.toVec2()).div(2),
+        .size = sprite.sprite_size.toVec2(),
+    };
+
+    self.data.transforms[@intCast(self.data.transform_count)] = transform;
+    self.data.transform_count += 1;
 }
 
 pub fn clear(self: *Self, window_w: f32, window_h: f32) void {
@@ -234,7 +288,7 @@ pub fn clear(self: *Self, window_w: f32, window_h: f32) void {
     gl.Uniform2fv(self.screen_size_id, 1, &[2]f32{ window_w, window_h });
 }
 
-pub fn initTransforms(self: *Self, transforms: []const Transform) void {
+fn initTransforms(self: *Self, transforms: []const Transform) void {
     _ = self;
     gl.BufferSubData(
         gl.UNIFORM_BUFFER,
@@ -244,7 +298,7 @@ pub fn initTransforms(self: *Self, transforms: []const Transform) void {
     );
 }
 
-pub fn submitTransforms(self: *Self, transforms: []const Transform) void {
+fn submitTransforms(self: *Self, transforms: []const Transform) void {
     _ = self;
     gl.BufferSubData(
         gl.UNIFORM_BUFFER,
@@ -255,7 +309,7 @@ pub fn submitTransforms(self: *Self, transforms: []const Transform) void {
     gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(transforms.len));
 }
 
-pub fn glDebugCallback(
+fn glDebugCallback(
     source: c_uint,
     type_: c_uint,
     id: c_uint,

@@ -1,6 +1,7 @@
 const c = @import("c");
 const std = @import("std");
 const Vec2 = @import("math.zig").Vec2;
+
 const Self = @This();
 
 const NUM_KEYS = c.SDL_SCANCODE_COUNT;

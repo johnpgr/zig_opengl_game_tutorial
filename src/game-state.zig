@@ -69,3 +69,18 @@ pub fn keyReleased(self: *Self, key: c.SDL_Keycode) bool {
     // Key is released if it's currently up (0) and was previously down (1).
     return !key_state_curr[idx] and self.key_state_prev[idx];
 }
+
+pub fn keyDown(self: *Self, key: c.SDL_Keycode) bool {
+    _ = self;
+    const key_state_curr = c.SDL_GetKeyboardState(null);
+    if (key_state_curr == null) return false;
+
+    const scancode = c.SDL_GetScancodeFromKey(key, null);
+    if (scancode == c.SDL_SCANCODE_UNKNOWN) return false;
+
+    if (scancode < 0 or scancode >= NUM_KEYS) return false;
+
+    const idx: usize = @intCast(scancode);
+    // Key is down if it's currently pressed
+    return key_state_curr[idx];
+}

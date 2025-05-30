@@ -30,7 +30,6 @@ pub fn main() !void {
     const transient_storage_allocator = transient_storage.allocator();
     defer std.heap.page_allocator.free(transient_storage.buffer);
 
-    // Create SDL window and OpenGL context here
     if (!c.SDL_Init(c.SDL_INIT_VIDEO)) {
         std.debug.print("Failed to initialize SDL: {s}\n", .{c.SDL_GetError()});
         return error.SDLInitError;
@@ -48,7 +47,7 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyWindow(window);
 
-    const render_data = try RenderData.init(transient_storage_allocator, .{
+    const render_data = try RenderData.init(persistent_storage_allocator, .{
         .x = @floatFromInt(WORLD_WIDTH),
         .y = @floatFromInt(WORLD_HEIGHT),
     });
@@ -94,7 +93,7 @@ pub fn main() !void {
                 lib.lib.close();
             }
 
-            game_lib = GameLib.load(transient_storage.allocator(), lib_path) catch |e| {
+            game_lib = GameLib.load(transient_storage_allocator, lib_path) catch |e| {
                 std.debug.print("Failed to load game library: {}\n", .{e});
                 continue;
             };
@@ -152,7 +151,7 @@ pub fn main() !void {
             std.debug.print("Reloading library...\n", .{});
 
             // First rebuild the library
-            util.rebuildLibrary(transient_storage.allocator()) catch |err| {
+            util.rebuildLibrary(transient_storage_allocator) catch |err| {
                 std.debug.print("Failed to rebuild library: {}\n", .{err});
                 continue; // Skip reload if build failed
             };

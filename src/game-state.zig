@@ -4,6 +4,8 @@ const OrthographicCamera2d = @import("gpu-data.zig").OrthographicCamera2d;
 const Vec2 = @import("math.zig").Vec2;
 const GameInputType = @import("input.zig").GameInputType;
 const KeyMapping = @import("input.zig").KeyMapping;
+const Tile = @import("tile.zig");
+const WORLD_GRID = @import("main.zig").WORLD_GRID;
 
 const Self = @This();
 
@@ -19,6 +21,7 @@ mouse_pos_rel: Vec2,
 mouse_pos_world: Vec2,
 mouse_pos_world_prev: Vec2,
 mouse_pos_world_rel: Vec2,
+world_grid: [WORLD_GRID.x][WORLD_GRID.y]Tile,
 
 key_state_prev: [NUM_KEYS]bool,
 key_mapping: KeyMapping,
@@ -37,12 +40,13 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
         .mouse_pos_world_rel = .{ .x = 0.0, .y = 0.0 },
         .key_state_prev = [_]bool{false} ** NUM_KEYS,
         .key_mapping = try KeyMapping.init(allocator),
+        .world_grid = [_][WORLD_GRID.y]Tile{[_]Tile{.{}} ** WORLD_GRID.y} ** WORLD_GRID.x,
     };
 
     return self;
 }
 
-pub fn deinit(self:*Self) void {
+pub fn deinit(self: *Self) void {
     self.key_mapping.deinit();
 }
 

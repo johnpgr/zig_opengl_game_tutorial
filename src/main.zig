@@ -8,6 +8,7 @@ const GameState = @import("game-state.zig");
 const RenderData = @import("gpu-data.zig").RenderData;
 const GLRenderer = @import("gl-renderer.zig");
 const GameLib = @import("lib.zig");
+const IVec2 = @import("math.zig").IVec2;
 
 const mb = util.mb;
 
@@ -15,7 +16,11 @@ const WORLD_WIDTH = 320;
 const WORLD_HEIGHT = 180;
 const INITIAL_SCREEN_WIDTH = WORLD_WIDTH * 4;
 const INITIAL_SCREEN_HEIGHT = WORLD_HEIGHT * 4;
-const TILE_SIZE = 16;
+const TILE_SIZE = 8;
+pub const WORLD_GRID: IVec2 = .{
+    .x = WORLD_WIDTH / TILE_SIZE,
+    .y = WORLD_HEIGHT / TILE_SIZE,
+};
 
 pub fn main() !void {
     var persistent_storage = std.heap.FixedBufferAllocator.init(
@@ -164,7 +169,7 @@ pub fn main() !void {
             lib.update_fn(system, game_state);
             lib.draw_fn(system, game_state);
         } else {
-            system.renderer.clearScreen(system.screen_dimensions.x, system.screen_dimensions.y);
+            system.renderer.clearScreen(system.screen_dimensions);
             //TODO: render a default screen or error message
         }
 

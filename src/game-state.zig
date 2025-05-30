@@ -76,13 +76,8 @@ pub fn updateMousePosition(
     self.mouse_pos_prev = self.mouse_pos;
     self.mouse_pos_world_prev = self.mouse_pos_world;
 
-    // Get current mouse position from SDL
-    var x: f32 = undefined;
-    var y: f32 = undefined;
-    _ = c.SDL_GetMouseState(&x, &y);
-
     // Update screen position
-    self.mouse_pos = .{ .x = x, .y = y };
+    self.mouse_pos = util.getMousePosition();
 
     // Calculate relative movement
     self.mouse_pos_rel = .{
@@ -90,12 +85,8 @@ pub fn updateMousePosition(
         .y = self.mouse_pos.y - self.mouse_pos_prev.y,
     };
 
-    // Convert screen coordinates to world coordinates using util function
-    self.mouse_pos_world = util.screenToWorld(
-        render_data.game_camera,
-        screen_dimensions,
-        self.mouse_pos,
-    );
+    //TODO
+    // self.mouse_pos_world =
 
     // Calculate world relative movement
     self.mouse_pos_world_rel = .{

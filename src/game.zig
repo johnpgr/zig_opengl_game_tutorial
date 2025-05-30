@@ -40,6 +40,12 @@ export fn update(system: *System, game_state: *GameState) callconv(.C) void {
     if (game_state.inputDown(.PRIMARY)) {
         const mouse_pos = game_state.mouse_pos_world;
         const tile = game_state.getTileAtWorldPos(mouse_pos);
+        std.debug.print("Mouse position: ({}, {})\n", .{
+            game_state.mouse_pos.x, game_state.mouse_pos.y,
+        });
+        std.debug.print("Mouse position World: ({}, {})\n", .{
+            game_state.mouse_pos_world.x, game_state.mouse_pos_world.y,
+        });
         std.debug.print("Tile at ({}, {})\n", .{
             mouse_pos.x, mouse_pos.y,
         });
@@ -48,19 +54,18 @@ export fn update(system: *System, game_state: *GameState) callconv(.C) void {
         }
     }
     if (game_state.inputDown(.SECONDARY)) {
-        const mouse_pos = game_state.mouse_pos_world;
+        const mouse_pos = game_state.mouse_pos;
         const tile = game_state.getTileAtWorldPos(mouse_pos);
         if (tile) |t| {
             t.is_visible = false;
         }
     }
-    //print the player and mouse positions
-    std.debug.print("Player position: ({}, {})\n", .{
-        game_state.player_pos.x, game_state.player_pos.y,
-    });
-    std.debug.print("Mouse position: ({}, {})\n", .{
-        game_state.mouse_pos_world.x, game_state.mouse_pos_world.y,
-    });
+    // std.debug.print("Mouse position: ({}, {})\n", .{
+    //     game_state.mouse_pos.x, game_state.mouse_pos.y,
+    // });
+    // std.debug.print("Mouse position World: ({}, {})\n", .{
+    //     game_state.mouse_pos_world.x, game_state.mouse_pos_world.y,
+    // });
 }
 
 export fn draw(system: *System, game_state: *GameState) callconv(.C) void {

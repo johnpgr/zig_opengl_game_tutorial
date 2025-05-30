@@ -3,6 +3,7 @@ const IVec2 = @import("math.zig").IVec2;
 const Vec2 = @import("math.zig").Vec2;
 const OrthographicCamera2d = @import("gpu-data.zig").OrthographicCamera2d;
 const std = @import("std");
+const c = @import("c");
 
 pub inline fn bit(comptime x: usize) usize {
     return 1 << x;
@@ -162,22 +163,10 @@ pub fn rebuildLibrary(allocator: std.mem.Allocator) !void {
     }
 }
 
-pub fn screenToWorld(
-    game_camera: OrthographicCamera2d,
-    screen_dimensions: Vec2,
-    screen_pos: Vec2,
-) Vec2 {
-    var x_pos: f32 = screen_pos.x / screen_dimensions.x *
-        game_camera.dimensions.x;
-    // Offset using dimensions and position
-    x_pos += -game_camera.dimensions.x / 2 +
-        game_camera.position.x;
-
-    var y_pos: f32 = screen_pos.y / screen_dimensions.y *
-        game_camera.dimensions.y;
-    // Offset using dimensions and position
-    y_pos += game_camera.dimensions.y / 2 +
-        game_camera.position.y;
-
-    return Vec2.init(x_pos, y_pos);
+/// Get current mouse position from SDL
+pub fn getMousePosition() Vec2 {
+    var x: f32 = undefined;
+    var y: f32 = undefined;
+    _ = c.SDL_GetMouseState(&x, &y);
+    return Vec2{ .x = x, .y = y };
 }

@@ -66,13 +66,19 @@ pub fn init(
     )) return error.ContextFlagsSettingFailed;
 
     self.context = c.SDL_GL_CreateContext(window) orelse {
-        std.debug.print("Failed to create OpenGL context: {s}\n", .{c.SDL_GetError()});
+        std.debug.print(
+            "Failed to create OpenGL context: {s}\n",
+            .{c.SDL_GetError()},
+        );
         return error.ContextCreationFailed;
     };
     errdefer _ = c.SDL_GL_DestroyContext(self.context);
 
     if (!c.SDL_GL_MakeCurrent(window, self.context)) {
-        std.debug.print("Failed to make OpenGL context current: {s}\n", .{c.SDL_GetError()});
+        std.debug.print(
+            "Failed to make OpenGL context current: {s}\n",
+            .{c.SDL_GetError()},
+        );
         return error.ContextMakeCurrentFailed;
     }
     errdefer _ = c.SDL_GL_MakeCurrent(null, null);
@@ -109,7 +115,10 @@ pub fn init(
 
         const vert_shader_id = gl.CreateShader(gl.VERTEX_SHADER);
         if (vert_shader_id == 0) {
-            std.debug.print("Failed to create vertex shader: {s}\n", .{c.SDL_GetError()});
+            std.debug.print(
+                "Failed to create vertex shader: {s}\n",
+                .{c.SDL_GetError()},
+            );
             return error.VertexShaderCreationFailed;
         }
         defer {
@@ -122,7 +131,12 @@ pub fn init(
         gl.GetShaderiv(vert_shader_id, gl.COMPILE_STATUS, &success);
 
         if (success == gl.FALSE) {
-            gl.GetShaderInfoLog(vert_shader_id, info_log_buf.len, null, &info_log_buf);
+            gl.GetShaderInfoLog(
+                vert_shader_id,
+                info_log_buf.len,
+                null,
+                &info_log_buf,
+            );
             std.debug.print(
                 "Vertex shader compilation failed: {s}\n",
                 .{std.mem.sliceTo(&info_log_buf, 0)},
@@ -132,7 +146,10 @@ pub fn init(
 
         const frag_shader_id = gl.CreateShader(gl.FRAGMENT_SHADER);
         if (frag_shader_id == 0) {
-            std.debug.print("Failed to create fragment shader: {s}\n", .{c.SDL_GetError()});
+            std.debug.print(
+                "Failed to create fragment shader: {s}\n",
+                .{c.SDL_GetError()},
+            );
             return error.FragmentShaderCreationFailed;
         }
         defer {
@@ -145,7 +162,12 @@ pub fn init(
         gl.GetShaderiv(frag_shader_id, gl.COMPILE_STATUS, &success);
 
         if (success == gl.FALSE) {
-            gl.GetShaderInfoLog(frag_shader_id, info_log_buf.len, null, &info_log_buf);
+            gl.GetShaderInfoLog(
+                frag_shader_id,
+                info_log_buf.len,
+                null,
+                &info_log_buf,
+            );
             std.debug.print(
                 "Fragment shader compilation failed: {s}\n",
                 .{std.mem.sliceTo(&info_log_buf, 0)},
@@ -159,7 +181,12 @@ pub fn init(
         gl.LinkProgram(self.program_id);
         gl.GetProgramiv(self.program_id, gl.LINK_STATUS, &success);
         if (success == gl.FALSE) {
-            gl.GetProgramInfoLog(self.program_id, info_log_buf.len, null, &info_log_buf);
+            gl.GetProgramInfoLog(
+                self.program_id,
+                info_log_buf.len,
+                null,
+                &info_log_buf,
+            );
             std.debug.print(
                 "Shader program linking failed: {s}\n",
                 .{std.mem.sliceTo(&info_log_buf, 0)},
@@ -221,7 +248,10 @@ pub fn init(
 
     // Uniform locations
     self.screen_size_id = gl.GetUniformLocation(self.program_id, "screen_size");
-    self.projection_matrix_id = gl.GetUniformLocation(self.program_id, "projection_matrix");
+    self.projection_matrix_id = gl.GetUniformLocation(
+        self.program_id,
+        "projection_matrix",
+    );
 
     // Vertex attributes
     gl.Enable(gl.FRAMEBUFFER_SRGB);
@@ -281,15 +311,24 @@ pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {
     self.data.transform_count += 1;
 }
 
-pub fn clearScreen(self: *Self, window_w: f32, window_h: f32) void {
+pub fn clearScreen(self: *Self, screen_dimensions: Vec2) void {
     gl.makeProcTableCurrent(&self.procs);
     gl.ClearColor(0.3, 0.5, 1.0, 1.0);
     gl.ClearDepth(0);
     gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // Set the viewport to the current window size
-    gl.Viewport(0, 0, @intFromFloat(window_w), @intFromFloat(window_h));
+    gl.Viewport(
+        0,
+        0,
+        @intFromFloat(screen_dimensions.x),
+        @intFromFloat(screen_dimensions.y),
+    );
     // Send the screen size to the shader
-    gl.Uniform2fv(self.screen_size_id, 1, &[2]f32{ window_w, window_h });
+    gl.Uniform2fv(
+        self.screen_size_id,
+        1,
+        &[2]f32{ screen_dimensions.x, screen_dimensions.y },
+    );
 }
 
 fn initTransforms(self: *Self, transforms: []const Transform) void {

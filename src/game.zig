@@ -24,6 +24,6 @@ export fn update(system: *const System, game_state: *GameState) callconv(.C) voi
 
 export fn draw(system: *const System, game_state: *GameState) callconv(.C) void {
     system.renderer.drawSprite(.DICE, game_state.player_pos);
-    system.renderer.clearScreen(system.screen_dimensions.x, system.screen_dimensions.y);
+    system.renderer.clearScreen(system.screen_dimensions);
     system.renderer.render();
 }

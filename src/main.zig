@@ -9,7 +9,6 @@ const RenderData = @import("gpu-data.zig").RenderData;
 const GLRenderer = @import("gl-renderer.zig");
 const GameLib = @import("lib.zig");
 
-const BumpAllocator = util.BumpAllocator;
 const mb = util.mb;
 
 const WORLD_WIDTH = 320;
@@ -19,11 +18,17 @@ const INITIAL_SCREEN_HEIGHT = WORLD_HEIGHT * 4;
 const TILE_SIZE = 16;
 
 pub fn main() !void {
-    var transient_storage = try BumpAllocator.init(mb(50));
-    defer transient_storage.deinit();
+    var persistent_storage = std.heap.FixedBufferAllocator.init(
+        try std.heap.page_allocator.alloc(u8, mb(50)),
+    );
+    const persistent_storage_allocator = persistent_storage.allocator();
+    defer std.heap.page_allocator.free(persistent_storage.buffer);
 
-    var persistent_storage = try BumpAllocator.init(mb(50));
-    defer persistent_storage.deinit();
+    var transient_storage = std.heap.FixedBufferAllocator.init(
+        try std.heap.page_allocator.alloc(u8, mb(50)),
+    );
+    const transient_storage_allocator = transient_storage.allocator();
+    defer std.heap.page_allocator.free(transient_storage.buffer);
 
     // Create SDL window and OpenGL context here
     if (!c.SDL_Init(c.SDL_INIT_VIDEO)) {
@@ -43,25 +48,28 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyWindow(window);
 
-    const render_data = try persistent_storage.alloc(RenderData);
-    RenderData.init(render_data, .{
+    const render_data = try RenderData.init(transient_storage_allocator, .{
         .x = @floatFromInt(WORLD_WIDTH),
         .y = @floatFromInt(WORLD_HEIGHT),
     });
 
-    var renderer = try GLRenderer.init(window, render_data);
+    var renderer = try GLRenderer.init(
+        persistent_storage_allocator,
+        window,
+        render_data,
+    );
     defer renderer.deinit();
 
-    const system = try persistent_storage.alloc(System);
-    System.init(
-        system,
+    const system = try System.init(
+        persistent_storage_allocator,
         window,
-        &renderer,
+        renderer,
         @floatFromInt(INITIAL_SCREEN_WIDTH),
         @floatFromInt(INITIAL_SCREEN_HEIGHT),
     );
-    const game_state = try persistent_storage.alloc(GameState);
-    game_state.init();
+
+    const game_state = try GameState.init(persistent_storage_allocator);
+    defer game_state.deinit();
 
     const lib_path = comptime if (builtin.os.tag == .windows)
         "game.dll"
@@ -122,12 +130,24 @@ pub fn main() !void {
             }
         }
 
-        // Handle key presses using our new functions
-        if (game_state.keyPressed(c.SDLK_ESCAPE)) {
+        if (game_state.inputDown(.MOVE_LEFT)) {
+            game_state.player_pos.x -= 1;
+        }
+        if (game_state.inputDown(.MOVE_RIGHT)) {
+            game_state.player_pos.x += 1;
+        }
+        if (game_state.inputDown(.MOVE_UP)) {
+            game_state.player_pos.y -= 1;
+        }
+        if (game_state.inputDown(.MOVE_DOWN)) {
+            game_state.player_pos.y += 1;
+        }
+
+        if (game_state.inputDown(.QUIT)) {
             system.running = false;
         }
 
-        if (game_state.keyPressed(c.SDLK_R)) {
+        if (game_state.inputPressed(.RELOAD)) {
             should_reload = true;
             std.debug.print("Reloading library...\n", .{});
 
@@ -141,24 +161,11 @@ pub fn main() !void {
             std.time.sleep(100 * std.time.ns_per_ms);
         }
 
-        if(game_state.keyDown(c.SDLK_A)){
-            game_state.player_pos.x -= 0.1;
-        }
-        if(game_state.keyDown(c.SDLK_D)){
-            game_state.player_pos.x += 0.1;
-        }
-        if(game_state.keyDown(c.SDLK_W)){
-            game_state.player_pos.y -= 0.1;
-        }
-        if(game_state.keyDown(c.SDLK_S)){
-            game_state.player_pos.y += 0.1;
-        }
-
         if (game_lib) |lib| {
             lib.update_fn(system, game_state);
             lib.draw_fn(system, game_state);
         } else {
-            system.renderer.clear(system.screen_dimensions.x, system.screen_dimensions.y);
+            system.renderer.clearScreen(system.screen_dimensions.x, system.screen_dimensions.y);
             //TODO: render a default screen or error message
         }
 

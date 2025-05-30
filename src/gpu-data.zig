@@ -19,16 +19,20 @@ pub const Transform = struct {
 };
 
 pub const RenderData = struct {
+    allocator: std.mem.Allocator,
     game_camera: OrthographicCamera2d,
     ui_camera: OrthographicCamera2d,
     transform_count: usize,
     transforms: [MAX_TRANSFORMS]Transform,
 
     pub fn init(
-        self: *RenderData,
+        allocator: std.mem.Allocator,
         game_camera_dimensions: Vec2,
-    ) void {
+    ) !*RenderData {
+        const self = try allocator.create(RenderData);
+
         self.* = .{
+            .allocator = allocator,
             .game_camera = .{
                 .position = .{ .x = 0.0, .y = 0.0 },
                 .dimensions = game_camera_dimensions,
@@ -47,5 +51,7 @@ pub const RenderData = struct {
                 },
             } ** MAX_TRANSFORMS,
         };
+
+        return self;
     }
 };

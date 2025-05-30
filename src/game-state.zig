@@ -2,11 +2,14 @@ const c = @import("c");
 const std = @import("std");
 const OrthographicCamera2d = @import("gpu-data.zig").OrthographicCamera2d;
 const Vec2 = @import("math.zig").Vec2;
+const GameInputType = @import("input.zig").GameInputType;
+const KeyMapping = @import("input.zig").KeyMapping;
 
 const Self = @This();
 
 const NUM_KEYS = c.SDL_SCANCODE_COUNT;
 
+allocator: std.mem.Allocator,
 player_pos: Vec2,
 // Screen
 mouse_pos: Vec2,
@@ -18,16 +21,29 @@ mouse_pos_world_prev: Vec2,
 mouse_pos_world_rel: Vec2,
 
 key_state_prev: [NUM_KEYS]bool,
+key_mapping: KeyMapping,
 
-pub fn init(self: *Self) void {
-    self.player_pos = .{ .x = 0.0, .y = 0.0 };
-    self.mouse_pos = .{ .x = 0.0, .y = 0.0 };
-    self.mouse_pos_prev = .{ .x = 0.0, .y = 0.0 };
-    self.mouse_pos_rel = .{ .x = 0.0, .y = 0.0 };
-    self.mouse_pos_world = .{ .x = 0.0, .y = 0.0 };
-    self.mouse_pos_world_prev = .{ .x = 0.0, .y = 0.0 };
-    self.mouse_pos_world_rel = .{ .x = 0.0, .y = 0.0 };
-    self.key_state_prev = [_]bool{false} ** NUM_KEYS;
+pub fn init(allocator: std.mem.Allocator) !*Self {
+    const self = try allocator.create(Self);
+
+    self.* = .{
+        .allocator = allocator,
+        .player_pos = .{ .x = 0.0, .y = 0.0 },
+        .mouse_pos = .{ .x = 0.0, .y = 0.0 },
+        .mouse_pos_prev = .{ .x = 0.0, .y = 0.0 },
+        .mouse_pos_rel = .{ .x = 0.0, .y = 0.0 },
+        .mouse_pos_world = .{ .x = 0.0, .y = 0.0 },
+        .mouse_pos_world_prev = .{ .x = 0.0, .y = 0.0 },
+        .mouse_pos_world_rel = .{ .x = 0.0, .y = 0.0 },
+        .key_state_prev = [_]bool{false} ** NUM_KEYS,
+        .key_mapping = try KeyMapping.init(allocator),
+    };
+
+    return self;
+}
+
+pub fn deinit(self:*Self) void {
+    self.key_mapping.deinit();
 }
 
 pub fn update_key_state(self: *Self) void {
@@ -86,6 +102,36 @@ pub fn keyDown(self: *Self, key: c.SDL_Keycode) bool {
     return key_state_curr[idx];
 }
 
+pub fn inputPressed(self: *Self, input_type: GameInputType) bool {
+    const keys = self.key_mapping.getKeys(input_type);
+    for (keys) |key| {
+        if (self.keyPressed(key)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+pub fn inputReleased(self: *Self, input_type: GameInputType) bool {
+    const keys = self.key_mapping.getKeys(input_type);
+    for (keys) |key| {
+        if (self.keyReleased(key)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+pub fn inputDown(self: *Self, input_type: GameInputType) bool {
+    const keys = self.key_mapping.getKeys(input_type);
+    for (keys) |key| {
+        if (self.keyDown(key)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 pub fn updateMousePosition(
     self: *Self,
     screen_x: f32,
@@ -119,9 +165,4 @@ pub fn updateMousePosition(
         .x = self.mouse_pos_world.x - self.mouse_pos_world_prev.x,
         .y = self.mouse_pos_world.y - self.mouse_pos_world_prev.y,
     };
-
-    std.debug.print("Mouse World Pos: {}, {}\n", .{
-        self.mouse_pos_world.x,
-        self.mouse_pos_world.y,
-    });
 }

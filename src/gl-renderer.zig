@@ -14,7 +14,7 @@ const Mat4 = @import("math.zig").Mat4;
 
 const Self = @This();
 
-// OpenGL state (merged from GLProgram)
+allocator: std.mem.Allocator,
 procs: gl.ProcTable = undefined,
 context: c.SDL_GLContext = null,
 program_id: c_uint = 0,
@@ -28,8 +28,15 @@ ubo: c_uint = 0,
 data: *RenderData,
 window: *c.SDL_Window,
 
-pub fn init(window: *c.SDL_Window, render_data: *RenderData) !Self {
-    var self = Self{
+pub fn init(
+    allocator: std.mem.Allocator,
+    window: *c.SDL_Window,
+    render_data: *RenderData,
+) !*Self {
+    var self = try allocator.create(Self);
+
+    self.* = .{
+        .allocator = allocator,
         .data = render_data,
         .window = window,
     };
@@ -223,7 +230,7 @@ pub fn init(window: *c.SDL_Window, render_data: *RenderData) !Self {
     gl.DepthFunc(gl.GREATER);
 
     // Initialize transforms
-    initTransforms(&self, render_data.transforms[0..]);
+    self.initTransforms(render_data.transforms[0..]);
 
     return self;
 }
@@ -234,14 +241,8 @@ pub fn deinit(self: *Self) void {
     gl.DeleteProgram(self.program_id);
 }
 
-pub fn render(self: *Self, w: f32, h: f32) void {
-    if (!c.SDL_GL_MakeCurrent(self.window, self.context)) {
-        std.debug.print("Failed to make OpenGL context current in clear: {s}\n", .{c.SDL_GetError()});
-        return;
-    }
+pub fn render(self: *Self) void {
     gl.makeProcTableCurrent(&self.procs);
-
-    clear(self, w, h);
 
     const camera = self.data.game_camera;
     var projection_matrix = Mat4.orthographicProjection(
@@ -280,8 +281,9 @@ pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {
     self.data.transform_count += 1;
 }
 
-pub fn clear(self: *Self, window_w: f32, window_h: f32) void {
-    gl.ClearColor(0.4, 0.5, 1.0, 1.0);
+pub fn clearScreen(self: *Self, window_w: f32, window_h: f32) void {
+    gl.makeProcTableCurrent(&self.procs);
+    gl.ClearColor(0.3, 0.5, 1.0, 1.0);
     gl.ClearDepth(0);
     gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // Set the viewport to the current window size

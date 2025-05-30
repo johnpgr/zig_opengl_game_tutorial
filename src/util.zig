@@ -17,38 +17,6 @@ pub inline fn gb(comptime x: usize) usize {
     return mb(x) * 1024;
 }
 
-pub const BumpAllocator = struct {
-    fba: std.heap.FixedBufferAllocator,
-
-    pub fn init(size: usize) !BumpAllocator {
-        const buffer = try std.heap.page_allocator.alloc(u8, size);
-
-        return .{
-            .fba = std.heap.FixedBufferAllocator.init(buffer),
-        };
-    }
-
-    pub fn deinit(self: *BumpAllocator) void {
-        std.heap.page_allocator.free(self.fba.buffer);
-    }
-
-    pub fn reset(self: *BumpAllocator) void {
-        self.fba.reset();
-    }
-
-    pub fn alloc(self: *BumpAllocator, comptime T: type) !*T {
-        return try self.allocator().create(T);
-    }
-
-    pub fn allocSlice(self: *BumpAllocator, comptime T: type, size: usize) ![]T {
-        return try self.allocator().alloc(T, size);
-    }
-
-    pub fn allocator(self: *BumpAllocator) std.mem.Allocator {
-        return self.fba.allocator();
-    }
-};
-
 pub const File = struct {
     data: std.fs.File,
     path: []const u8,

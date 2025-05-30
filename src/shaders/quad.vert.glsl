@@ -8,7 +8,7 @@ struct Transform {
 };
 
 layout(std140) uniform TransformUBO {
-    Transform transforms[1024];
+    Transform transforms[1000];
 };
 
 uniform vec2 screen_size;

@@ -1,4 +1,4 @@
-pub const IVec2 = @import("math.zig").IVec2;
+const IVec2 = @import("math.zig").IVec2;
 
 pub const WORLD_WIDTH = 320;
 pub const WORLD_HEIGHT = 180;

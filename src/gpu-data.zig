@@ -1,6 +1,5 @@
 const std = @import("std");
 
-pub const MAX_TRANSFORMS = 1024;
 
 const Vec2 = @import("math.zig").Vec2;
 const IVec2 = @import("math.zig").IVec2;
@@ -22,14 +21,17 @@ pub const RenderData = struct {
     allocator: std.mem.Allocator,
     game_camera: OrthographicCamera2d,
     ui_camera: OrthographicCamera2d,
-    transform_count: usize,
-    transforms: [MAX_TRANSFORMS]Transform,
+    max_transforms: usize,
+    transforms: std.ArrayList(Transform),
 
     pub fn init(
         allocator: std.mem.Allocator,
         game_camera_dimensions: Vec2,
+        max_transforms: usize,
     ) !*RenderData {
         const self = try allocator.create(RenderData);
+        var transforms = std.ArrayList(Transform).init(allocator);
+        try transforms.ensureTotalCapacity(max_transforms);
 
         self.* = .{
             .allocator = allocator,
@@ -41,17 +43,21 @@ pub const RenderData = struct {
                 .position = .{ .x = 0.0, .y = 0.0 },
                 .dimensions = .{ .x = 0.0, .y = 0.0 },
             },
-            .transform_count = 0,
-            .transforms = .{
-                Transform{
-                    .atlas_offset = .{ .x = 0, .y = 0 },
-                    .sprite_size = .{ .x = 0, .y = 0 },
-                    .pos = .{ .x = 0, .y = 0 },
-                    .size = .{ .x = 0, .y = 0 },
-                },
-            } ** MAX_TRANSFORMS,
+            .max_transforms = max_transforms,
+            .transforms = transforms,
         };
 
         return self;
+    }
+
+    pub fn addTransform(self: *RenderData, transform: Transform) !void {
+        if (self.transforms.items.len >= self.max_transforms) {
+            return error.MaxTransformsExceeded;
+        }
+        try self.transforms.append(transform);
+    }
+
+    pub fn clearTransforms(self: *RenderData) void {
+        self.transforms.clearRetainingCapacity();
     }
 };

@@ -1,5 +1,5 @@
 const std = @import("std");
-const globals = @import("globals.zig");
+const global = @import("global.zig");
 const builtin = @import("builtin");
 const c = @import("c");
 const util = @import("util.zig");
@@ -33,8 +33,8 @@ pub fn main() !void {
 
     const window = c.SDL_CreateWindow(
         "Zig OpenGL Game",
-        globals.INITIAL_SCREEN_WIDTH,
-        globals.INITIAL_SCREEN_HEIGHT,
+        global.INITIAL_SCREEN_WIDTH,
+        global.INITIAL_SCREEN_HEIGHT,
         c.SDL_WINDOW_HIDDEN | c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_OPENGL,
     ) orelse {
         std.debug.print("Failed to create window: {s}\n", .{c.SDL_GetError()});
@@ -42,10 +42,14 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyWindow(window);
 
-    const render_data = try RenderData.init(persistent_storage_allocator, .{
-        .x = @floatFromInt(globals.WORLD_WIDTH),
-        .y = @floatFromInt(globals.WORLD_HEIGHT),
-    });
+    const render_data = try RenderData.init(
+        persistent_storage_allocator,
+        .{
+            .x = @floatFromInt(global.WORLD_WIDTH),
+            .y = @floatFromInt(global.WORLD_HEIGHT),
+        },
+        1000,
+    );
 
     var renderer = try GLRenderer.init(
         persistent_storage_allocator,
@@ -58,8 +62,8 @@ pub fn main() !void {
         persistent_storage_allocator,
         window,
         renderer,
-        @floatFromInt(globals.INITIAL_SCREEN_WIDTH),
-        @floatFromInt(globals.INITIAL_SCREEN_HEIGHT),
+        @floatFromInt(global.INITIAL_SCREEN_WIDTH),
+        @floatFromInt(global.INITIAL_SCREEN_HEIGHT),
     );
 
     const game_state = try GameState.init(persistent_storage_allocator);
@@ -109,17 +113,6 @@ pub fn main() !void {
                     system.screen_dimensions.x = @floatFromInt(event.window.data1);
                     system.screen_dimensions.y = @floatFromInt(event.window.data2);
                 },
-                c.SDL_EVENT_MOUSE_MOTION => {
-                    const screen_x = event.motion.x;
-                    const screen_y = event.motion.y;
-
-                    game_state.updateMousePosition(
-                        screen_x,
-                        screen_y,
-                        &render_data.game_camera,
-                        system.screen_dimensions,
-                    );
-                },
                 else => {},
             }
         }
@@ -146,7 +139,8 @@ pub fn main() !void {
             //TODO: render a default screen or error message
         }
 
-        game_state.update_key_state();
+        game_state.updateMousePosition(render_data, system.screen_dimensions);
+        game_state.updateKeyState();
         transient_storage.reset();
     }
 }

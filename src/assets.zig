@@ -26,6 +26,7 @@ pub fn loadTexture(texture_name: []const u8) !*c.SDL_Surface {
 }
 
 pub const SpriteID = enum {
+    WHITE,
     DICE,
 };
 
@@ -37,8 +38,12 @@ pub const Sprite = struct {
         var sprite: Sprite = undefined;
 
         switch (sprite_id) {
-            .DICE => {
+            .WHITE => {
                 sprite.atlas_offset = .{ .x = 0, .y = 0 };
+                sprite.sprite_size = .{ .x = 1, .y = 1 };
+            },
+            .DICE => {
+                sprite.atlas_offset = .{ .x = 16, .y = 0 };
                 sprite.sprite_size = .{ .x = 16, .y = 16 };
             },
         }

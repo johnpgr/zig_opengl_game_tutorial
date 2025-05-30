@@ -1,7 +1,10 @@
 const c = @import("c");
+const global = @import("global.zig");
 const std = @import("std");
 const System = @import("system.zig");
 const GameState = @import("game-state.zig");
+const Vec2 = @import("math.zig").Vec2;
+const IVec2 = @import("math.zig").IVec2;
 
 export fn init(system: *System) callconv(.C) void {
     // TODO Initialize game here
@@ -34,17 +37,63 @@ export fn update(system: *System, game_state: *GameState) callconv(.C) void {
     if (game_state.inputDown(.QUIT)) {
         system.running = false;
     }
-    if(game_state.inputDown(.PRIMARY)) {
+    if (game_state.inputDown(.PRIMARY)) {
         const mouse_pos = game_state.mouse_pos_world;
         const tile = game_state.getTileAtWorldPos(mouse_pos);
-        if(tile) |t| {
+        std.debug.print("Tile at ({}, {})\n", .{
+            mouse_pos.x, mouse_pos.y,
+        });
+        if (tile) |t| {
             t.is_visible = true;
         }
     }
+    if (game_state.inputDown(.SECONDARY)) {
+        const mouse_pos = game_state.mouse_pos_world;
+        const tile = game_state.getTileAtWorldPos(mouse_pos);
+        if (tile) |t| {
+            t.is_visible = false;
+        }
+    }
+    //print the player and mouse positions
+    std.debug.print("Player position: ({}, {})\n", .{
+        game_state.player_pos.x, game_state.player_pos.y,
+    });
+    std.debug.print("Mouse position: ({}, {})\n", .{
+        game_state.mouse_pos_world.x, game_state.mouse_pos_world.y,
+    });
 }
 
 export fn draw(system: *System, game_state: *GameState) callconv(.C) void {
-    system.renderer.drawSprite(.DICE, game_state.player_pos);
     system.renderer.clearScreen(system.screen_dimensions);
+
+    // Draw the tileset
+    var x: i32 = 0;
+    while (x < global.WORLD_GRID.x) : (x += 1) {
+        var y: i32 = 0;
+        while (y < global.WORLD_GRID.y) : (y += 1) {
+            const tile = game_state.getTileAtWorldPosI(
+                IVec2.init(x, y),
+            );
+            if (tile) |t| {
+                if (!t.is_visible) {
+                    continue;
+                }
+                const tile_pos = Vec2{
+                    .x = @floatFromInt(x * global.TILE_SIZE + global.TILE_SIZE / 2),
+                    .y = @floatFromInt(y * global.TILE_SIZE + global.TILE_SIZE / 2),
+                };
+                system.renderer.drawQuad(
+                    tile_pos,
+                    Vec2.init(global.TILE_SIZE, global.TILE_SIZE),
+                ) catch |e| {
+                    std.debug.print("Failed to draw tile at ({}, {}): {}\n", .{
+                        x, y, e,
+                    });
+                };
+            }
+        }
+    }
+
+    system.renderer.drawSprite(.DICE, game_state.player_pos);
     system.renderer.render();
 }

@@ -1,10 +1,13 @@
 const c = @import("c");
 const std = @import("std");
-const globals = @import("globals.zig");
+const global = @import("global.zig");
+const util = @import("util.zig");
 const OrthographicCamera2d = @import("gpu-data.zig").OrthographicCamera2d;
 const Vec2 = @import("math.zig").Vec2;
+const IVec2 = @import("math.zig").IVec2;
 const GameInputType = @import("input.zig").GameInputType;
 const KeyMapping = @import("input.zig").KeyMapping;
+const RenderData = @import("gpu-data.zig").RenderData;
 const Tile = @import("tile.zig");
 
 const Self = @This();
@@ -21,7 +24,7 @@ mouse_pos_rel: Vec2,
 mouse_pos_world: Vec2,
 mouse_pos_world_prev: Vec2,
 mouse_pos_world_rel: Vec2,
-world_grid: [globals.WORLD_GRID.x][globals.WORLD_GRID.y]Tile,
+world_grid: [global.WORLD_GRID.x][global.WORLD_GRID.y]Tile,
 
 key_state_prev: [NUM_KEYS]bool,
 key_mapping: KeyMapping,
@@ -40,9 +43,9 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
         .mouse_pos_world_rel = .{ .x = 0.0, .y = 0.0 },
         .key_state_prev = [_]bool{false} ** NUM_KEYS,
         .key_mapping = try KeyMapping.init(allocator),
-        .world_grid = [_][globals.WORLD_GRID.y]Tile{
-            [_]Tile{.{}} ** globals.WORLD_GRID.y,
-        } ** globals.WORLD_GRID.x,
+        .world_grid = [_][global.WORLD_GRID.y]Tile{
+            [_]Tile{.{}} ** global.WORLD_GRID.y,
+        } ** global.WORLD_GRID.x,
     };
 
     return self;
@@ -52,7 +55,7 @@ pub fn deinit(self: *Self) void {
     self.key_mapping.deinit();
 }
 
-pub fn update_key_state(self: *Self) void {
+pub fn updateKeyState(self: *Self) void {
     const current_key_state = c.SDL_GetKeyboardState(null);
 
     if (current_key_state != null) {
@@ -62,6 +65,43 @@ pub fn update_key_state(self: *Self) void {
     } else {
         std.debug.print("Failed to get keyboard state\n", .{});
     }
+}
+
+pub fn updateMousePosition(
+    self: *Self,
+    render_data: *RenderData,
+    screen_dimensions: Vec2,
+) void {
+    // Store previous positions
+    self.mouse_pos_prev = self.mouse_pos;
+    self.mouse_pos_world_prev = self.mouse_pos_world;
+
+    // Get current mouse position from SDL
+    var x: f32 = undefined;
+    var y: f32 = undefined;
+    _ = c.SDL_GetMouseState(&x, &y);
+
+    // Update screen position
+    self.mouse_pos = .{ .x = x, .y = y };
+
+    // Calculate relative movement
+    self.mouse_pos_rel = .{
+        .x = self.mouse_pos.x - self.mouse_pos_prev.x,
+        .y = self.mouse_pos.y - self.mouse_pos_prev.y,
+    };
+
+    // Convert screen coordinates to world coordinates using util function
+    self.mouse_pos_world = util.screenToWorld(
+        render_data.game_camera,
+        screen_dimensions,
+        self.mouse_pos,
+    );
+
+    // Calculate world relative movement
+    self.mouse_pos_world_rel = .{
+        .x = self.mouse_pos_world.x - self.mouse_pos_world_prev.x,
+        .y = self.mouse_pos_world.y - self.mouse_pos_world_prev.y,
+    };
 }
 
 pub fn keyPressed(self: *Self, key: c.SDL_Keycode) bool {
@@ -150,43 +190,16 @@ pub fn mouseButtonDown(self: *Self, button: u8) bool {
     return (mouse_state & mask) != 0;
 }
 
-pub fn updateMousePosition(
-    self: *Self,
-    screen_x: f32,
-    screen_y: f32,
-    camera: *const OrthographicCamera2d,
-    screen_dimensions: Vec2,
-) void {
-    // Store the previous positions
-    self.mouse_pos_prev = self.mouse_pos;
-    self.mouse_pos_world_prev = self.mouse_pos_world;
+pub fn getTile(self: *Self, x: f32, y: f32) ?*Tile {
+    if (x >= 0 and x < global.WORLD_GRID.x and y >= 0 and y < global.WORLD_GRID.y) {
+        return &self.world_grid[@intFromFloat(x)][@intFromFloat(y)];
+    }
 
-    // Update current screen position
-    self.mouse_pos = .{ .x = screen_x, .y = screen_y };
-
-    // Convert screen coordinates to normalized device coordinates (0 to 1)
-    const ndc_x = screen_x / screen_dimensions.x;
-    const ndc_y = screen_y / screen_dimensions.y;
-
-    // Convert NDC to world coordinates accounting for camera position and zoom
-    const world_x = camera.position.x + (ndc_x * camera.dimensions.x) / camera.zoom;
-    const world_y = camera.position.y + (ndc_y * camera.dimensions.y) / camera.zoom;
-
-    self.mouse_pos_world = .{ .x = world_x, .y = world_y };
-
-    // Calculate relative movement
-    self.mouse_pos_rel = .{
-        .x = self.mouse_pos.x - self.mouse_pos_prev.x,
-        .y = self.mouse_pos.y - self.mouse_pos_prev.y,
-    };
-    self.mouse_pos_world_rel = .{
-        .x = self.mouse_pos_world.x - self.mouse_pos_world_prev.x,
-        .y = self.mouse_pos_world.y - self.mouse_pos_world_prev.y,
-    };
+    return null;
 }
 
-pub fn getTile(self: *Self, x: i32, y: i32) ?*Tile {
-    if (x >= 0 and x < globals.WORLD_GRID.x and y >= 0 and y < globals.WORLD_GRID.y) {
+pub fn getTileI(self: *Self, x: i32, y: i32) ?*Tile {
+    if (x >= 0 and x < global.WORLD_GRID.x and y >= 0 and y < global.WORLD_GRID.y) {
         return &self.world_grid[@intCast(x)][@intCast(y)];
     }
 
@@ -194,8 +207,9 @@ pub fn getTile(self: *Self, x: i32, y: i32) ?*Tile {
 }
 
 pub fn getTileAtWorldPos(self: *Self, pos: Vec2) ?*Tile {
-    const x: i32 = @intFromFloat(pos.x / globals.TILE_SIZE);
-    const y: i32 = @intFromFloat(pos.y / globals.TILE_SIZE);
+    return self.getTile(pos.x, pos.y);
+}
 
-    return self.getTile(x, y);
+pub fn getTileAtWorldPosI(self: *Self, pos: IVec2) ?*Tile {
+    return self.getTileI(pos.x, pos.y);
 }

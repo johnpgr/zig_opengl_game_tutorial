@@ -4,6 +4,14 @@ pub const Vec2 = struct {
     x: f32,
     y: f32,
 
+    pub fn init(x: f32, y: f32) Vec2 {
+        return Vec2{ .x = x, .y = y };
+    }
+
+    pub fn zero() Vec2 {
+        return Vec2{ .x = 0.0, .y = 0.0 };
+    }
+
     pub fn toIVec2(self: Vec2) IVec2 {
         return IVec2{ .x = @intCast(self.x), .y = @intCast(self.y) };
     }
@@ -24,6 +32,14 @@ pub const Vec2 = struct {
 pub const IVec2 = struct {
     x: i32,
     y: i32,
+
+    pub fn init(x: i32, y: i32) IVec2 {
+        return IVec2{ .x = x, .y = y };
+    }
+
+    pub fn zero() IVec2 {
+        return IVec2{ .x = 0, .y = 0 };
+    }
 
     pub fn toVec2(self: IVec2) Vec2 {
         return Vec2{ .x = @floatFromInt(self.x), .y = @floatFromInt(self.y) };

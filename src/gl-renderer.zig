@@ -5,7 +5,6 @@ const builtin = @import("builtin");
 const assets = @import("assets.zig");
 const Transform = @import("gpu-data.zig").Transform;
 const RenderData = @import("gpu-data.zig").RenderData;
-const MAX_TRANSFORMS = @import("gpu-data.zig").MAX_TRANSFORMS;
 const Sprite = @import("assets.zig").Sprite;
 const SpriteID = @import("assets.zig").SpriteID;
 const Vec2 = @import("math.zig").Vec2;
@@ -241,8 +240,8 @@ pub fn init(
     gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, self.ubo);
     gl.BufferData(
         gl.UNIFORM_BUFFER,
-        @sizeOf(Transform) * MAX_TRANSFORMS,
-        null, // Initial data is null, will be filled later
+        @sizeOf(Transform) * @as(isize, @intCast(render_data.max_transforms)),
+        render_data.transforms.items.ptr,
         gl.DYNAMIC_DRAW,
     );
 
@@ -258,9 +257,6 @@ pub fn init(
     gl.Disable(gl.MULTISAMPLE);
     gl.Enable(gl.DEPTH_TEST);
     gl.DepthFunc(gl.GREATER);
-
-    // Initialize transforms
-    self.initTransforms(render_data.transforms[0..]);
 
     return self;
 }
@@ -288,11 +284,15 @@ pub fn render(self: *Self) void {
         projection_matrix.ax(),
     );
 
-    if (self.data.transform_count > 0) {
-        submitTransforms(self, self.data.transforms[0..self.data.transform_count]);
-        // Reset transform count for the next frame
-        self.data.transform_count = 0;
-    }
+    gl.BufferSubData(
+        gl.UNIFORM_BUFFER,
+        0,
+        @sizeOf(Transform) * @as(isize, @intCast(self.data.transforms.items.len)),
+        self.data.transforms.items.ptr,
+    );
+    gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(self.data.transforms.items.len));
+    // Reset transform count for the next frame
+    self.data.clearTransforms();
 
     _ = c.SDL_GL_SwapWindow(self.window);
 }
@@ -307,8 +307,19 @@ pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {
         .size = sprite.sprite_size.toVec2(),
     };
 
-    self.data.transforms[@intCast(self.data.transform_count)] = transform;
-    self.data.transform_count += 1;
+    self.data.addTransform(transform) catch |err| {
+        std.debug.print("Failed to add sprite transform: {}\n", .{err});
+    };
+}
+
+pub fn drawQuad(self: *Self, pos: Vec2, size: Vec2) !void {
+    const transform = Transform{
+        .pos = pos.sub(size).div(2),
+        .size = size,
+        .atlas_offset = IVec2.zero(),
+        .sprite_size = IVec2.init(1, 1),
+    };
+    try self.data.addTransform(transform);
 }
 
 pub fn clearScreen(self: *Self, screen_dimensions: Vec2) void {
@@ -329,27 +340,6 @@ pub fn clearScreen(self: *Self, screen_dimensions: Vec2) void {
         1,
         &[2]f32{ screen_dimensions.x, screen_dimensions.y },
     );
-}
-
-fn initTransforms(self: *Self, transforms: []const Transform) void {
-    _ = self;
-    gl.BufferSubData(
-        gl.UNIFORM_BUFFER,
-        0,
-        @sizeOf(Transform) * MAX_TRANSFORMS,
-        transforms.ptr,
-    );
-}
-
-fn submitTransforms(self: *Self, transforms: []const Transform) void {
-    _ = self;
-    gl.BufferSubData(
-        gl.UNIFORM_BUFFER,
-        0,
-        @sizeOf(Transform) * @as(isize, @intCast(transforms.len)),
-        transforms.ptr,
-    );
-    gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(transforms.len));
 }
 
 fn glDebugCallback(

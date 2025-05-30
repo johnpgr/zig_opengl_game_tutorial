@@ -313,7 +313,7 @@ pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {
 
 pub fn clearScreen(self: *Self, screen_dimensions: Vec2) void {
     gl.makeProcTableCurrent(&self.procs);
-    gl.ClearColor(0.3, 0.5, 1.0, 1.0);
+    gl.ClearColor(0.1, 0.1, 0.1, 1.0);
     gl.ClearDepth(0);
     gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // Set the viewport to the current window size

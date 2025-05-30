@@ -1,4 +1,5 @@
 const std = @import("std");
+const globals = @import("globals.zig");
 const builtin = @import("builtin");
 const c = @import("c");
 const util = @import("util.zig");
@@ -9,18 +10,7 @@ const RenderData = @import("gpu-data.zig").RenderData;
 const GLRenderer = @import("gl-renderer.zig");
 const GameLib = @import("lib.zig");
 const IVec2 = @import("math.zig").IVec2;
-
 const mb = util.mb;
-
-const WORLD_WIDTH = 320;
-const WORLD_HEIGHT = 180;
-const INITIAL_SCREEN_WIDTH = WORLD_WIDTH * 4;
-const INITIAL_SCREEN_HEIGHT = WORLD_HEIGHT * 4;
-const TILE_SIZE = 8;
-pub const WORLD_GRID: IVec2 = .{
-    .x = WORLD_WIDTH / TILE_SIZE,
-    .y = WORLD_HEIGHT / TILE_SIZE,
-};
 
 pub fn main() !void {
     var persistent_storage = std.heap.FixedBufferAllocator.init(
@@ -43,8 +33,8 @@ pub fn main() !void {
 
     const window = c.SDL_CreateWindow(
         "Zig OpenGL Game",
-        INITIAL_SCREEN_WIDTH,
-        INITIAL_SCREEN_HEIGHT,
+        globals.INITIAL_SCREEN_WIDTH,
+        globals.INITIAL_SCREEN_HEIGHT,
         c.SDL_WINDOW_HIDDEN | c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_OPENGL,
     ) orelse {
         std.debug.print("Failed to create window: {s}\n", .{c.SDL_GetError()});
@@ -53,8 +43,8 @@ pub fn main() !void {
     defer c.SDL_DestroyWindow(window);
 
     const render_data = try RenderData.init(persistent_storage_allocator, .{
-        .x = @floatFromInt(WORLD_WIDTH),
-        .y = @floatFromInt(WORLD_HEIGHT),
+        .x = @floatFromInt(globals.WORLD_WIDTH),
+        .y = @floatFromInt(globals.WORLD_HEIGHT),
     });
 
     var renderer = try GLRenderer.init(
@@ -68,8 +58,8 @@ pub fn main() !void {
         persistent_storage_allocator,
         window,
         renderer,
-        @floatFromInt(INITIAL_SCREEN_WIDTH),
-        @floatFromInt(INITIAL_SCREEN_HEIGHT),
+        @floatFromInt(globals.INITIAL_SCREEN_WIDTH),
+        @floatFromInt(globals.INITIAL_SCREEN_HEIGHT),
     );
 
     const game_state = try GameState.init(persistent_storage_allocator);
@@ -134,24 +124,7 @@ pub fn main() !void {
             }
         }
 
-        if (game_state.inputDown(.MOVE_LEFT)) {
-            game_state.player_pos.x -= 1;
-        }
-        if (game_state.inputDown(.MOVE_RIGHT)) {
-            game_state.player_pos.x += 1;
-        }
-        if (game_state.inputDown(.MOVE_UP)) {
-            game_state.player_pos.y -= 1;
-        }
-        if (game_state.inputDown(.MOVE_DOWN)) {
-            game_state.player_pos.y += 1;
-        }
-
-        if (game_state.inputDown(.QUIT)) {
-            system.running = false;
-        }
-
-        if (game_state.inputPressed(.RELOAD)) {
+        if (game_state.keyPressed(c.SDLK_R)) {
             should_reload = true;
             std.debug.print("Reloading library...\n", .{});
 

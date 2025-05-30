@@ -11,17 +11,27 @@ pub const GameInputType = enum {
     INTERACT,
     PAUSE,
     QUIT,
-    RELOAD,
+    PRIMARY,
+    SECONDARY,
+};
+
+pub const InputCode = union(enum) {
+    key: c.SDL_Keycode,
+    mouse: u8,  // SDL_BUTTON_LEFT = 1, SDL_BUTTON_RIGHT = 3, etc.
+    // gamepad: u8,  // Can be added later
 };
 
 pub const KeyMapping = struct {
     allocator: std.mem.Allocator,
-    mappings: std.EnumArray(GameInputType, std.ArrayList(c.SDL_Keycode)),
+    mappings: std.EnumArray(GameInputType, std.ArrayList(InputCode)),
 
     pub fn init(allocator: std.mem.Allocator) !KeyMapping {
         var self = KeyMapping{
             .allocator = allocator,
-            .mappings = std.EnumArray(GameInputType, std.ArrayList(c.SDL_Keycode)).init(.{
+            .mappings = std.EnumArray(
+                GameInputType,
+                std.ArrayList(InputCode),
+            ).init(.{
                 .MOVE_UP = undefined,
                 .MOVE_DOWN = undefined,
                 .MOVE_LEFT = undefined,
@@ -31,41 +41,44 @@ pub const KeyMapping = struct {
                 .INTERACT = undefined,
                 .PAUSE = undefined,
                 .QUIT = undefined,
-                .RELOAD = undefined,
+                .PRIMARY = undefined,
+                .SECONDARY = undefined,
             }),
         };
 
         // Initialize ArrayLists for each GameInputType
         inline for (std.meta.fields(GameInputType)) |field| {
             const input_type = @field(GameInputType, field.name);
-            self.mappings.set(input_type, std.ArrayList(c.SDL_Keycode).init(allocator));
+            self.mappings.set(
+                input_type,
+                std.ArrayList(InputCode).init(allocator),
+            );
         }
 
-        // Set up default key mappings
-        self.addMapping(.MOVE_UP, c.SDLK_W) catch {};
-        self.addMapping(.MOVE_UP, c.SDLK_UP) catch {};
-        
-        self.addMapping(.MOVE_DOWN, c.SDLK_S) catch {};
-        self.addMapping(.MOVE_DOWN, c.SDLK_DOWN) catch {};
-        
-        self.addMapping(.MOVE_LEFT, c.SDLK_A) catch {};
-        self.addMapping(.MOVE_LEFT, c.SDLK_LEFT) catch {};
-        
-        self.addMapping(.MOVE_RIGHT, c.SDLK_D) catch {};
-        self.addMapping(.MOVE_RIGHT, c.SDLK_RIGHT) catch {};
-        
-        self.addMapping(.JUMP, c.SDLK_SPACE) catch {};
-        
-        self.addMapping(.ATTACK, c.SDLK_X) catch {};
-        self.addMapping(.ATTACK, c.SDLK_Z) catch {};
-        
-        self.addMapping(.INTERACT, c.SDLK_E) catch {};
-        
-        self.addMapping(.PAUSE, c.SDLK_ESCAPE) catch {};
-        
-        self.addMapping(.QUIT, c.SDLK_ESCAPE) catch {};
-        
-        self.addMapping(.RELOAD, c.SDLK_R) catch {};
+        try self.addMapping(.MOVE_UP, .{ .key = c.SDLK_W });
+        try self.addMapping(.MOVE_UP, .{ .key = c.SDLK_UP });
+
+        try self.addMapping(.MOVE_DOWN, .{ .key = c.SDLK_S });
+        try self.addMapping(.MOVE_DOWN, .{ .key = c.SDLK_DOWN });
+
+        try self.addMapping(.MOVE_LEFT, .{ .key = c.SDLK_A });
+        try self.addMapping(.MOVE_LEFT, .{ .key = c.SDLK_LEFT });
+
+        try self.addMapping(.MOVE_RIGHT, .{ .key = c.SDLK_D });
+        try self.addMapping(.MOVE_RIGHT, .{ .key = c.SDLK_RIGHT });
+
+        try self.addMapping(.JUMP, .{ .key = c.SDLK_SPACE });
+
+        try self.addMapping(.ATTACK, .{ .key = c.SDLK_X });
+        try self.addMapping(.ATTACK, .{ .mouse = c.SDL_BUTTON_LEFT });
+
+        try self.addMapping(.INTERACT, .{ .key = c.SDLK_E });
+
+        try self.addMapping(.PAUSE, .{ .key = c.SDLK_ESCAPE });
+        try self.addMapping(.QUIT, .{ .key = c.SDLK_ESCAPE });
+
+        try self.addMapping(.PRIMARY, .{ .mouse = c.SDL_BUTTON_LEFT });
+        try self.addMapping(.SECONDARY, .{ .mouse = c.SDL_BUTTON_RIGHT });
 
         return self;
     }
@@ -80,32 +93,32 @@ pub const KeyMapping = struct {
     pub fn addMapping(
         self: *KeyMapping,
         input_type: GameInputType,
-        key: c.SDL_Keycode,
+        code: InputCode,
     ) !void {
-        const key_list = self.mappings.getPtr(input_type);
+        const input_list = self.mappings.getPtr(input_type);
 
-        for (key_list.items) |existing_key| {
-            if (existing_key == key) return;
+        for (input_list.items) |existing_input| {
+            if (std.meta.eql(existing_input, code)) return;
         }
 
-        try key_list.append(key);
+        try input_list.append(code);
     }
 
     pub fn removeMapping(
         self: *KeyMapping,
         input_type: GameInputType,
-        keycode: c.SDL_Keycode,
+        code: InputCode,
     ) void {
-        var key_list = self.mappings.getPtr(input_type);
-        for (key_list.items, 0..) |existing_key, i| {
-            if (existing_key == keycode) {
-                _ = key_list.swapRemove(i);
+        var input_list = self.mappings.getPtr(input_type);
+        for (input_list.items, 0..) |existing_input, i| {
+            if (std.meta.eql(existing_input, code)) {
+                _ = input_list.swapRemove(i);
                 break;
             }
         }
     }
 
-    pub fn getKeys(self: *const KeyMapping, input_type: GameInputType) []const c.SDL_Keycode {
+    pub fn getInputs(self: *const KeyMapping, input_type: GameInputType) []const InputCode {
         return self.mappings.get(input_type).items;
     }
 };

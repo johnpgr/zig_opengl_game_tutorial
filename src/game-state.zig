@@ -1,11 +1,11 @@
 const c = @import("c");
 const std = @import("std");
+const globals = @import("globals.zig");
 const OrthographicCamera2d = @import("gpu-data.zig").OrthographicCamera2d;
 const Vec2 = @import("math.zig").Vec2;
 const GameInputType = @import("input.zig").GameInputType;
 const KeyMapping = @import("input.zig").KeyMapping;
 const Tile = @import("tile.zig");
-const WORLD_GRID = @import("main.zig").WORLD_GRID;
 
 const Self = @This();
 
@@ -21,7 +21,7 @@ mouse_pos_rel: Vec2,
 mouse_pos_world: Vec2,
 mouse_pos_world_prev: Vec2,
 mouse_pos_world_rel: Vec2,
-world_grid: [WORLD_GRID.x][WORLD_GRID.y]Tile,
+world_grid: [globals.WORLD_GRID.x][globals.WORLD_GRID.y]Tile,
 
 key_state_prev: [NUM_KEYS]bool,
 key_mapping: KeyMapping,
@@ -40,7 +40,9 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
         .mouse_pos_world_rel = .{ .x = 0.0, .y = 0.0 },
         .key_state_prev = [_]bool{false} ** NUM_KEYS,
         .key_mapping = try KeyMapping.init(allocator),
-        .world_grid = [_][WORLD_GRID.y]Tile{[_]Tile{.{}} ** WORLD_GRID.y} ** WORLD_GRID.x,
+        .world_grid = [_][globals.WORLD_GRID.y]Tile{
+            [_]Tile{.{}} ** globals.WORLD_GRID.y,
+        } ** globals.WORLD_GRID.x,
     };
 
     return self;
@@ -127,13 +129,25 @@ pub fn inputReleased(self: *Self, input_type: GameInputType) bool {
 }
 
 pub fn inputDown(self: *Self, input_type: GameInputType) bool {
-    const keys = self.key_mapping.getKeys(input_type);
-    for (keys) |key| {
-        if (self.keyDown(key)) {
-            return true;
+    const inputs = self.key_mapping.getInputs(input_type);
+    for (inputs) |input| {
+        switch (input) {
+            .key => |keycode| {
+                if (self.keyDown(keycode)) return true;
+            },
+            .mouse => |button| {
+                if (self.mouseButtonDown(button)) return true;
+            },
         }
     }
     return false;
+}
+
+pub fn mouseButtonDown(self: *Self, button: u8) bool {
+    _ = self;
+    const mouse_state: c_uint = c.SDL_GetMouseState(null, null);
+    const mask: c_uint = @as(c_uint, 1) << @as(u5, @intCast(@as(c_uint, button) - 1));
+    return (mouse_state & mask) != 0;
 }
 
 pub fn updateMousePosition(
@@ -169,4 +183,19 @@ pub fn updateMousePosition(
         .x = self.mouse_pos_world.x - self.mouse_pos_world_prev.x,
         .y = self.mouse_pos_world.y - self.mouse_pos_world_prev.y,
     };
+}
+
+pub fn getTile(self: *Self, x: i32, y: i32) ?*Tile {
+    if (x >= 0 and x < globals.WORLD_GRID.x and y >= 0 and y < globals.WORLD_GRID.y) {
+        return &self.world_grid[@intCast(x)][@intCast(y)];
+    }
+
+    return null;
+}
+
+pub fn getTileAtWorldPos(self: *Self, pos: Vec2) ?*Tile {
+    const x: i32 = @intFromFloat(pos.x / globals.TILE_SIZE);
+    const y: i32 = @intFromFloat(pos.y / globals.TILE_SIZE);
+
+    return self.getTile(x, y);
 }

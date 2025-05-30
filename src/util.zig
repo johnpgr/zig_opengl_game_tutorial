@@ -69,7 +69,11 @@ pub const File = struct {
         };
     }
 
-    pub fn copyFile(allocator: std.mem.Allocator, source_path: []const u8, dest_path: []const u8) !void {
+    pub fn copyFile(
+        allocator: std.mem.Allocator,
+        source_path: []const u8,
+        dest_path: []const u8,
+    ) !void {
         // Open source file for reading
         var source = try File.open(source_path, .{ .mode = .read_only });
         defer source.close();

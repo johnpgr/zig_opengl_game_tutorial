@@ -6,10 +6,10 @@ const GameState = @import("game-state.zig");
 
 const Self = @This();
 
-pub const InitFn = *const fn (system: *const System) callconv(.C) void;
-pub const DeinitFn = *const fn (system: *const System) callconv(.C) void;
-pub const UpdateFn = *const fn (system: *const System, game_state: *GameState) callconv(.C) void;
-pub const DrawFn = *const fn (system: *const System, game_state: *GameState) callconv(.C) void;
+pub const InitFn = *const fn (system: *System) callconv(.C) void;
+pub const DeinitFn = *const fn (system: *System) callconv(.C) void;
+pub const UpdateFn = *const fn (system: *System, game_state: *GameState) callconv(.C) void;
+pub const DrawFn = *const fn (system: *System, game_state: *GameState) callconv(.C) void;
 
 lib: std.DynLib,
 path: []const u8,
@@ -23,7 +23,11 @@ pub fn load(allocator: std.mem.Allocator, path: []const u8) !Self {
     var lib: std.DynLib = undefined;
 
     if (comptime builtin.os.tag == .windows) {
-        const lib_path = try std.fmt.allocPrint(allocator, "./tmp.{s}", .{std.fs.path.basename(path)});
+        const lib_path = try std.fmt.allocPrint(
+            allocator,
+            "./tmp.{s}",
+            .{std.fs.path.basename(path)},
+        );
         defer allocator.free(lib_path);
 
         // Create temp library files

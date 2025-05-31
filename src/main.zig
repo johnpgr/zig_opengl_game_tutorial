@@ -2,11 +2,11 @@ const std = @import("std");
 const global = @import("global.zig");
 const builtin = @import("builtin");
 const c = @import("c");
+const g = @import("global.zig");
 const util = @import("util.zig");
 const Game = @import("game.zig");
-const System = @import("system.zig");
 const GameState = @import("game-state.zig");
-const RenderData = @import("gpu-data.zig").RenderData;
+const RenderData = @import("render-data.zig");
 const GLRenderer = @import("gl-renderer.zig");
 const GameLib = @import("lib.zig");
 const IVec2 = @import("math.zig").IVec2;
@@ -31,7 +31,7 @@ pub fn main() !void {
     }
     defer c.SDL_Quit();
 
-    const window = c.SDL_CreateWindow(
+    g.window = c.SDL_CreateWindow(
         "Zig OpenGL Game",
         global.INITIAL_SCREEN_WIDTH,
         global.INITIAL_SCREEN_HEIGHT,
@@ -40,7 +40,7 @@ pub fn main() !void {
         std.debug.print("Failed to create window: {s}\n", .{c.SDL_GetError()});
         return error.WindowCreationError;
     };
-    defer c.SDL_DestroyWindow(window);
+    defer c.SDL_DestroyWindow(g.window);
 
     const render_data = try RenderData.init(
         persistent_storage_allocator,
@@ -51,23 +51,12 @@ pub fn main() !void {
         1000,
     );
 
-    var renderer = try GLRenderer.init(
-        persistent_storage_allocator,
-        window,
-        render_data,
-    );
-    defer renderer.deinit();
-
-    const system = try System.init(
-        persistent_storage_allocator,
-        window,
-        renderer,
-        @floatFromInt(global.INITIAL_SCREEN_WIDTH),
-        @floatFromInt(global.INITIAL_SCREEN_HEIGHT),
-    );
+    g.sdl_gl_context = try GLRenderer.initGLSDL(g.window);
+    defer _ = c.SDL_GL_DestroyContext(g.sdl_gl_context);
+    g.gl_context = try GLRenderer.init(persistent_storage_allocator);
+    defer g.gl_context.deinit();
 
     const game_state = try GameState.init(persistent_storage_allocator);
-    defer game_state.deinit();
 
     const lib_path = comptime if (builtin.os.tag == .windows)
         "game.dll"
@@ -79,16 +68,16 @@ pub fn main() !void {
     var should_reload = true;
     var game_lib: ?GameLib = null;
     defer if (game_lib) |*lib| {
-        lib.deinit_fn(system);
+        lib.deinit_fn();
         lib.lib.close();
     };
 
-    _ = c.SDL_ShowWindow(window);
+    _ = c.SDL_ShowWindow(g.window);
 
-    while (system.running) {
+    while (g.game_state.running) {
         if (should_reload) {
             if (game_lib) |*lib| {
-                lib.deinit_fn(system);
+                lib.deinit_fn();
                 lib.lib.close();
             }
 
@@ -98,7 +87,7 @@ pub fn main() !void {
             };
 
             std.debug.print("Game library loaded successfully: {s}\n", .{game_lib.?.path});
-            game_lib.?.init_fn(system);
+            game_lib.?.init_fn();
             should_reload = false;
         }
 
@@ -107,11 +96,11 @@ pub fn main() !void {
         while (c.SDL_PollEvent(&event)) {
             switch (event.type) {
                 c.SDL_EVENT_QUIT => {
-                    system.running = false;
+                    g.game_state.running = false;
                 },
                 c.SDL_EVENT_WINDOW_RESIZED => {
-                    system.screen_dimensions.x = @floatFromInt(event.window.data1);
-                    system.screen_dimensions.y = @floatFromInt(event.window.data2);
+                    g.game_state.screen_dimensions.x = @floatFromInt(event.window.data1);
+                    g.game_state.screen_dimensions.y = @floatFromInt(event.window.data2);
                 },
                 else => {},
             }
@@ -132,14 +121,13 @@ pub fn main() !void {
         }
 
         if (game_lib) |lib| {
-            lib.update_fn(system, game_state);
-            lib.draw_fn(system, game_state);
-        } else {
-            system.renderer.clearScreen(system.screen_dimensions);
-            //TODO: render a default screen or error message
+            lib.update_fn(game_state, render_data);
+        } else { 
+            //TODO: Handle case where game library is not loaded
+            @panic("Game library not loaded");
         }
 
-        game_state.updateMousePosition(render_data, system.screen_dimensions);
+        game_state.updateMousePosition(render_data, game_state.screen_dimensions);
         game_state.updateKeyState();
         transient_storage.reset();
     }

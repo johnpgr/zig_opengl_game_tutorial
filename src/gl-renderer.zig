@@ -1,10 +1,11 @@
 const std = @import("std");
+const g = @import("global.zig");
 const c = @import("c");
 const gl = @import("gl");
 const builtin = @import("builtin");
 const assets = @import("assets.zig");
-const Transform = @import("gpu-data.zig").Transform;
-const RenderData = @import("gpu-data.zig").RenderData;
+const RenderData = @import("render-data.zig");
+const Transform = @import("transform.zig");
 const Sprite = @import("assets.zig").Sprite;
 const SpriteID = @import("assets.zig").SpriteID;
 const Vec2 = @import("math.zig").Vec2;
@@ -13,33 +14,15 @@ const Mat4 = @import("math.zig").Mat4;
 
 const Self = @This();
 
-allocator: std.mem.Allocator,
 procs: gl.ProcTable = undefined,
-context: c.SDL_GLContext = null,
 program_id: c_uint = 0,
 texture_id: c_uint = 0,
-screen_size_id: c_int = 0,
-projection_matrix_id: c_int = 0,
 vao: c_uint = 0,
 ubo: c_uint = 0,
+screen_size_id: c_int = 0,
+projection_matrix_id: c_int = 0,
 
-// Renderer state
-data: *RenderData,
-window: *c.SDL_Window,
-
-pub fn init(
-    allocator: std.mem.Allocator,
-    window: *c.SDL_Window,
-    render_data: *RenderData,
-) !*Self {
-    var self = try allocator.create(Self);
-
-    self.* = .{
-        .allocator = allocator,
-        .data = render_data,
-        .window = window,
-    };
-
+pub fn initGLSDL(window: *c.SDL_Window) !c.SDL_GLContext {
     // Initialize OpenGL context and resources (merged from GLProgram.init)
     if (!c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MAJOR_VERSION, gl.info.version_major))
         return error.MajorVersionSettingFailed;
@@ -64,16 +47,16 @@ pub fn init(
             0,
     )) return error.ContextFlagsSettingFailed;
 
-    self.context = c.SDL_GL_CreateContext(window) orelse {
+    const gl_sdl_context = c.SDL_GL_CreateContext(window) orelse {
         std.debug.print(
             "Failed to create OpenGL context: {s}\n",
             .{c.SDL_GetError()},
         );
         return error.ContextCreationFailed;
     };
-    errdefer _ = c.SDL_GL_DestroyContext(self.context);
+    errdefer _ = c.SDL_GL_DestroyContext(g.sdl_gl_context);
 
-    if (!c.SDL_GL_MakeCurrent(window, self.context)) {
+    if (!c.SDL_GL_MakeCurrent(window, g.sdl_gl_context)) {
         std.debug.print(
             "Failed to make OpenGL context current: {s}\n",
             .{c.SDL_GetError()},
@@ -82,14 +65,22 @@ pub fn init(
     }
     errdefer _ = c.SDL_GL_MakeCurrent(null, null);
 
+    return gl_sdl_context;
+}
+
+pub fn init(allocator: std.mem.Allocator) !*Self {
+    const self = try allocator.create(Self);
+
     // Load OpenGL functions
     if (!self.procs.init(c.SDL_GL_GetProcAddress)) {
         std.debug.print("Failed to load OpenGL functions\n", .{});
         return error.FunctionLoadingFailed;
     }
 
-    gl.makeProcTableCurrent(&self.procs);
+    gl.makeProcTableCurrent(&g.gl_context.procs);
     errdefer gl.makeProcTableCurrent(null);
+
+    std.debug.print("GLContext ProcTable: {any}\n", .{g.gl_context.procs});
 
     const gl_version = gl.GetString(gl.VERSION) orelse "Unknown OpenGL version";
     std.debug.print("OpenGL Version: {s}\n", .{gl_version});
@@ -106,100 +97,39 @@ pub fn init(
     }
     errdefer gl.DeleteProgram(self.program_id);
 
-    {
-        const vert_shader = @embedFile("shaders/quad.vert.glsl");
-        const frag_shader = @embedFile("shaders/quad.frag.glsl");
-        var success: c_int = 0;
-        var info_log_buf: [1024:0]u8 = undefined;
+    const vert_shader_id = try createShader(gl.VERTEX_SHADER, "shaders/quad.vert.glsl");
+    const frag_shader_id = try createShader(gl.FRAGMENT_SHADER, "shaders/quad.vert.glsl");
 
-        const vert_shader_id = gl.CreateShader(gl.VERTEX_SHADER);
-        if (vert_shader_id == 0) {
-            std.debug.print(
-                "Failed to create vertex shader: {s}\n",
-                .{c.SDL_GetError()},
-            );
-            return error.VertexShaderCreationFailed;
-        }
-        defer {
-            gl.DetachShader(self.program_id, vert_shader_id);
-            gl.DeleteShader(vert_shader_id);
-        }
+    gl.AttachShader(self.program_id, vert_shader_id);
+    gl.AttachShader(self.program_id, frag_shader_id);
+    gl.LinkProgram(self.program_id);
 
-        gl.ShaderSource(vert_shader_id, 1, &.{vert_shader}, null);
-        gl.CompileShader(vert_shader_id);
-        gl.GetShaderiv(vert_shader_id, gl.COMPILE_STATUS, &success);
+    var success: c_int = 0;
+    var info_log_buf: [1024:0]u8 = undefined;
 
-        if (success == gl.FALSE) {
-            gl.GetShaderInfoLog(
-                vert_shader_id,
-                info_log_buf.len,
-                null,
-                &info_log_buf,
-            );
-            std.debug.print(
-                "Vertex shader compilation failed: {s}\n",
-                .{std.mem.sliceTo(&info_log_buf, 0)},
-            );
-            return error.VertexShaderCompilationFailed;
-        }
-
-        const frag_shader_id = gl.CreateShader(gl.FRAGMENT_SHADER);
-        if (frag_shader_id == 0) {
-            std.debug.print(
-                "Failed to create fragment shader: {s}\n",
-                .{c.SDL_GetError()},
-            );
-            return error.FragmentShaderCreationFailed;
-        }
-        defer {
-            gl.DetachShader(self.program_id, frag_shader_id);
-            gl.DeleteShader(frag_shader_id);
-        }
-
-        gl.ShaderSource(frag_shader_id, 1, &.{frag_shader}, null);
-        gl.CompileShader(frag_shader_id);
-        gl.GetShaderiv(frag_shader_id, gl.COMPILE_STATUS, &success);
-
-        if (success == gl.FALSE) {
-            gl.GetShaderInfoLog(
-                frag_shader_id,
-                info_log_buf.len,
-                null,
-                &info_log_buf,
-            );
-            std.debug.print(
-                "Fragment shader compilation failed: {s}\n",
-                .{std.mem.sliceTo(&info_log_buf, 0)},
-            );
-            return error.FragmentShaderCompilationFailed;
-        }
-
-        gl.AttachShader(self.program_id, vert_shader_id);
-        gl.AttachShader(self.program_id, frag_shader_id);
-
-        gl.LinkProgram(self.program_id);
-        gl.GetProgramiv(self.program_id, gl.LINK_STATUS, &success);
-        if (success == gl.FALSE) {
-            gl.GetProgramInfoLog(
-                self.program_id,
-                info_log_buf.len,
-                null,
-                &info_log_buf,
-            );
-            std.debug.print(
-                "Shader program linking failed: {s}\n",
-                .{std.mem.sliceTo(&info_log_buf, 0)},
-            );
-            return error.LinkProgramFailed;
-        }
+    gl.GetProgramiv(self.program_id, gl.LINK_STATUS, &success);
+    if (success == gl.FALSE) {
+        gl.GetProgramInfoLog(
+            self.program_id,
+            info_log_buf.len,
+            null,
+            &info_log_buf,
+        );
+        std.debug.print(
+            "Shader program linking failed: {s}\n",
+            .{std.mem.sliceTo(&info_log_buf, 0)},
+        );
+        return error.LinkProgramFailed;
     }
+    gl.DetachShader(self.program_id, vert_shader_id);
+    gl.DetachShader(self.program_id, frag_shader_id);
+    gl.DeleteShader(vert_shader_id);
+    gl.DeleteShader(frag_shader_id);
 
     gl.GenVertexArrays(1, (&self.vao)[0..1]);
     errdefer gl.DeleteVertexArrays(1, (&self.vao)[0..1]);
 
     gl.BindVertexArray(self.vao);
-
-    gl.UseProgram(self.program_id);
 
     // Texture atlas
     const texture = try assets.loadTexture("TEXTURE_ATLAS.png");
@@ -240,8 +170,8 @@ pub fn init(
     gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, self.ubo);
     gl.BufferData(
         gl.UNIFORM_BUFFER,
-        @sizeOf(Transform) * @as(isize, @intCast(render_data.max_transforms)),
-        render_data.transforms.items.ptr,
+        @sizeOf(Transform) * @as(isize, @intCast(g.render_data.max_transforms)),
+        g.render_data.transforms.items.ptr,
         gl.DYNAMIC_DRAW,
     );
 
@@ -258,24 +188,24 @@ pub fn init(
     gl.Enable(gl.DEPTH_TEST);
     gl.DepthFunc(gl.GREATER);
 
+    gl.UseProgram(self.program_id);
+
     return self;
 }
 
 pub fn deinit(self: *Self) void {
     gl.makeProcTableCurrent(&self.procs);
-    _ = c.SDL_GL_DestroyContext(self.context);
     gl.DeleteProgram(self.program_id);
 }
 
 pub fn render(self: *Self) void {
-    gl.makeProcTableCurrent(&self.procs);
+    gl.makeProcTableCurrent(&g.gl_context.procs);
 
-    const camera = self.data.game_camera;
     var projection_matrix = Mat4.orthographicProjection(
-        camera.position.x - camera.dimensions.x / 2,
-        camera.position.x + camera.dimensions.x / 2,
-        -camera.position.y - camera.dimensions.y / 2,
-        -camera.position.y + camera.dimensions.y / 2,
+        g.render_data.game_camera.position.x - g.render_data.game_camera.dimensions.x / 2,
+        g.render_data.game_camera.position.x + g.render_data.game_camera.dimensions.x / 2,
+        -g.render_data.game_camera.position.y - g.render_data.game_camera.dimensions.y / 2,
+        -g.render_data.game_camera.position.y + g.render_data.game_camera.dimensions.y / 2,
     );
     gl.UniformMatrix4fv(
         self.projection_matrix_id,
@@ -287,39 +217,14 @@ pub fn render(self: *Self) void {
     gl.BufferSubData(
         gl.UNIFORM_BUFFER,
         0,
-        @sizeOf(Transform) * @as(isize, @intCast(self.data.transforms.items.len)),
-        self.data.transforms.items.ptr,
+        @sizeOf(Transform) * @as(isize, @intCast(g.render_data.transforms.items.len)),
+        g.render_data.transforms.items.ptr,
     );
-    gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(self.data.transforms.items.len));
+    gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(g.render_data.transforms.items.len));
     // Reset transform count for the next frame
-    self.data.clearTransforms();
+    g.render_data.clearTransforms();
 
-    _ = c.SDL_GL_SwapWindow(self.window);
-}
-
-pub fn drawSprite(self: *Self, sprite_id: SpriteID, pos: Vec2) void {
-    const sprite = Sprite.fromId(sprite_id);
-
-    const transform = Transform{
-        .atlas_offset = sprite.atlas_offset,
-        .sprite_size = sprite.sprite_size,
-        .pos = pos.sub(sprite.sprite_size.toVec2()).div(2),
-        .size = sprite.sprite_size.toVec2(),
-    };
-
-    self.data.addTransform(transform) catch |err| {
-        std.debug.print("Failed to add sprite transform: {}\n", .{err});
-    };
-}
-
-pub fn drawQuad(self: *Self, pos: Vec2, size: Vec2) !void {
-    const transform = Transform{
-        .pos = pos.sub(size).div(2),
-        .size = size,
-        .atlas_offset = IVec2.zero(),
-        .sprite_size = IVec2.init(1, 1),
-    };
-    try self.data.addTransform(transform);
+    _ = c.SDL_GL_SwapWindow(g.window);
 }
 
 pub fn clearScreen(self: *Self, screen_dimensions: Vec2) void {
@@ -373,4 +278,40 @@ fn glDebugCallback(
             .{ id, type_, source, message[0..@as(usize, @intCast(length))] },
         );
     }
+}
+
+fn createShader(shader_type: c_uint, comptime shader_path: []const u8) !c_uint {
+    var success: c_int = 0;
+    var info_log_buf: [1024:0]u8 = undefined;
+
+    const shader_source = @embedFile(shader_path);
+    const shader_id = gl.CreateShader(shader_type);
+    if (shader_id == 0) {
+        std.debug.print(
+            "Failed to create shader: {s}\n",
+            .{c.SDL_GetError()},
+        );
+        return error.ShaderCreationFailed;
+    }
+    errdefer gl.DeleteShader(shader_id);
+
+    gl.ShaderSource(shader_id, 1, &.{shader_source}, null);
+    gl.CompileShader(shader_id);
+    gl.GetShaderiv(shader_id, gl.COMPILE_STATUS, &success);
+
+    if (success == gl.FALSE) {
+        gl.GetShaderInfoLog(
+            shader_id,
+            info_log_buf.len,
+            null,
+            &info_log_buf,
+        );
+        std.debug.print(
+            "Shader compilation failed: {s}\n",
+            .{std.mem.sliceTo(&info_log_buf, 0)},
+        );
+        return error.ShaderCompilationFailed;
+    }
+
+    return shader_id;
 }

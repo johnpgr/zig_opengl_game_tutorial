@@ -1,65 +1,50 @@
 const c = @import("c");
 const std = @import("std");
-const global = @import("global.zig");
+const g = @import("global.zig");
 const util = @import("util.zig");
-const OrthographicCamera2d = @import("gpu-data.zig").OrthographicCamera2d;
+const OrthographicCamera2d = @import("orthographic-camera-2d.zig");
 const Vec2 = @import("math.zig").Vec2;
 const IVec2 = @import("math.zig").IVec2;
 const GameInputType = @import("input.zig").GameInputType;
 const KeyMapping = @import("input.zig").KeyMapping;
-const RenderData = @import("gpu-data.zig").RenderData;
+const RenderData = @import("render-data.zig");
 const Tile = @import("tile.zig");
 
 const Self = @This();
 
-const NUM_KEYS = c.SDL_SCANCODE_COUNT;
-
-allocator: std.mem.Allocator,
-player_pos: Vec2,
-// Screen
-mouse_pos: Vec2,
-mouse_pos_prev: Vec2,
-mouse_pos_rel: Vec2,
-// World
-mouse_pos_world: Vec2,
-mouse_pos_world_prev: Vec2,
-mouse_pos_world_rel: Vec2,
-world_grid: [global.WORLD_GRID.x][global.WORLD_GRID.y]Tile,
-
-key_state_prev: [NUM_KEYS]bool,
+screen_dimensions: Vec2 = Vec2.init(0.0, 0.0),
+running: bool = true,
+frame_count: u32 = 0,
+delta_time: f32 = 0.0,
+player_pos: Vec2 = Vec2.init(0.0, 0.0),
+mouse_pos: Vec2 = Vec2.init(0.0, 0.0),
+mouse_pos_prev: Vec2 = Vec2.init(0.0, 0.0),
+mouse_pos_rel: Vec2 = Vec2.init(0.0, 0.0),
+mouse_pos_world: Vec2 = Vec2.init(0.0, 0.0),
+mouse_pos_world_prev: Vec2 = Vec2.init(0.0, 0.0),
+mouse_pos_world_rel: Vec2 = Vec2.init(0.0, 0.0),
+world_grid: [g.WORLD_GRID.x][g.WORLD_GRID.y]Tile =
+    [_][g.WORLD_GRID.y]Tile{
+        [_]Tile{.{}} ** g.WORLD_GRID.y,
+    } ** g.WORLD_GRID.x,
+key_state_prev: [g.NUM_KEYS]bool = [_]bool{false} ** g.NUM_KEYS,
 key_mapping: KeyMapping,
 
 pub fn init(allocator: std.mem.Allocator) !*Self {
     const self = try allocator.create(Self);
 
-    self.* = .{
-        .allocator = allocator,
-        .player_pos = .{ .x = 0.0, .y = 0.0 },
-        .mouse_pos = .{ .x = 0.0, .y = 0.0 },
-        .mouse_pos_prev = .{ .x = 0.0, .y = 0.0 },
-        .mouse_pos_rel = .{ .x = 0.0, .y = 0.0 },
-        .mouse_pos_world = .{ .x = 0.0, .y = 0.0 },
-        .mouse_pos_world_prev = .{ .x = 0.0, .y = 0.0 },
-        .mouse_pos_world_rel = .{ .x = 0.0, .y = 0.0 },
-        .key_state_prev = [_]bool{false} ** NUM_KEYS,
+    self.* = Self{
         .key_mapping = try KeyMapping.init(allocator),
-        .world_grid = [_][global.WORLD_GRID.y]Tile{
-            [_]Tile{.{}} ** global.WORLD_GRID.y,
-        } ** global.WORLD_GRID.x,
     };
 
     return self;
-}
-
-pub fn deinit(self: *Self) void {
-    self.key_mapping.deinit();
 }
 
 pub fn updateKeyState(self: *Self) void {
     const current_key_state = c.SDL_GetKeyboardState(null);
 
     if (current_key_state != null) {
-        for (0..NUM_KEYS) |i| {
+        for (0..g.NUM_KEYS) |i| {
             self.key_state_prev[i] = current_key_state.?[i];
         }
     } else {
@@ -72,6 +57,8 @@ pub fn updateMousePosition(
     render_data: *RenderData,
     screen_dimensions: Vec2,
 ) void {
+    _ = render_data;
+    _ = screen_dimensions;
     // Store previous positions
     self.mouse_pos_prev = self.mouse_pos;
     self.mouse_pos_world_prev = self.mouse_pos_world;
@@ -102,7 +89,7 @@ pub fn keyPressed(self: *Self, key: c.SDL_Keycode) bool {
     const scancode = c.SDL_GetScancodeFromKey(key, null);
     if (scancode == c.SDL_SCANCODE_UNKNOWN) return false;
 
-    if (scancode < 0 or scancode >= NUM_KEYS) return false;
+    if (scancode < 0 or scancode >= g.NUM_KEYS) return false;
 
     const idx: usize = @intCast(scancode);
     // Key is pressed if it's currently down (1) and was previously up (0).
@@ -132,7 +119,7 @@ pub fn keyDown(self: *Self, key: c.SDL_Keycode) bool {
     const scancode = c.SDL_GetScancodeFromKey(key, null);
     if (scancode == c.SDL_SCANCODE_UNKNOWN) return false;
 
-    if (scancode < 0 or scancode >= NUM_KEYS) return false;
+    if (scancode < 0 or scancode >= g.NUM_KEYS) return false;
 
     const idx: usize = @intCast(scancode);
     // Key is down if it's currently pressed
@@ -182,7 +169,7 @@ pub fn mouseButtonDown(self: *Self, button: u8) bool {
 }
 
 pub fn getTile(self: *Self, x: f32, y: f32) ?*Tile {
-    if (x >= 0 and x < global.WORLD_GRID.x and y >= 0 and y < global.WORLD_GRID.y) {
+    if (x >= 0 and x < g.WORLD_GRID.x and y >= 0 and y < g.WORLD_GRID.y) {
         return &self.world_grid[@intFromFloat(x)][@intFromFloat(y)];
     }
 
@@ -190,7 +177,7 @@ pub fn getTile(self: *Self, x: f32, y: f32) ?*Tile {
 }
 
 pub fn getTileI(self: *Self, x: i32, y: i32) ?*Tile {
-    if (x >= 0 and x < global.WORLD_GRID.x and y >= 0 and y < global.WORLD_GRID.y) {
+    if (x >= 0 and x < g.WORLD_GRID.x and y >= 0 and y < g.WORLD_GRID.y) {
         return &self.world_grid[@intCast(x)][@intCast(y)];
     }
 

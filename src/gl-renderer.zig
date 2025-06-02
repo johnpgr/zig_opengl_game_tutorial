@@ -5,7 +5,7 @@ const gl = @import("gl");
 const builtin = @import("builtin");
 const assets = @import("assets.zig");
 const RenderData = @import("render-data.zig");
-const Transform = @import("transform.zig");
+const Transform = @import("render-data.zig").Transform;
 const Sprite = @import("assets.zig").Sprite;
 const SpriteID = @import("assets.zig").SpriteID;
 const Vec2 = @import("math.zig").Vec2;
@@ -56,15 +56,6 @@ pub fn initGLSDL(window: *c.SDL_Window) !c.SDL_GLContext {
     };
     errdefer _ = c.SDL_GL_DestroyContext(g.sdl_gl_context);
 
-    if (!c.SDL_GL_MakeCurrent(window, g.sdl_gl_context)) {
-        std.debug.print(
-            "Failed to make OpenGL context current: {s}\n",
-            .{c.SDL_GetError()},
-        );
-        return error.ContextMakeCurrentFailed;
-    }
-    errdefer _ = c.SDL_GL_MakeCurrent(null, null);
-
     return gl_sdl_context;
 }
 
@@ -77,10 +68,7 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
         return error.FunctionLoadingFailed;
     }
 
-    gl.makeProcTableCurrent(&g.gl_context.procs);
-    errdefer gl.makeProcTableCurrent(null);
-
-    std.debug.print("GLContext ProcTable: {any}\n", .{g.gl_context.procs});
+    gl.makeProcTableCurrent(&self.procs);
 
     const gl_version = gl.GetString(gl.VERSION) orelse "Unknown OpenGL version";
     std.debug.print("OpenGL Version: {s}\n", .{gl_version});
@@ -98,7 +86,7 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
     errdefer gl.DeleteProgram(self.program_id);
 
     const vert_shader_id = try createShader(gl.VERTEX_SHADER, "shaders/quad.vert.glsl");
-    const frag_shader_id = try createShader(gl.FRAGMENT_SHADER, "shaders/quad.vert.glsl");
+    const frag_shader_id = try createShader(gl.FRAGMENT_SHADER, "shaders/quad.frag.glsl");
 
     gl.AttachShader(self.program_id, vert_shader_id);
     gl.AttachShader(self.program_id, frag_shader_id);
@@ -130,6 +118,8 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
     errdefer gl.DeleteVertexArrays(1, (&self.vao)[0..1]);
 
     gl.BindVertexArray(self.vao);
+
+    gl.UseProgram(self.program_id);
 
     // Texture atlas
     const texture = try assets.loadTexture("TEXTURE_ATLAS.png");
@@ -167,6 +157,7 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
     }
     gl.UniformBlockBinding(self.program_id, ubo_idx, 0);
     gl.GenBuffers(1, (&self.ubo)[0..1]);
+    gl.BindBuffer(gl.UNIFORM_BUFFER, self.ubo);
     gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, self.ubo);
     gl.BufferData(
         gl.UNIFORM_BUFFER,
@@ -188,19 +179,14 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
     gl.Enable(gl.DEPTH_TEST);
     gl.DepthFunc(gl.GREATER);
 
-    gl.UseProgram(self.program_id);
-
     return self;
 }
 
 pub fn deinit(self: *Self) void {
-    gl.makeProcTableCurrent(&self.procs);
     gl.DeleteProgram(self.program_id);
 }
 
 pub fn render(self: *Self) void {
-    gl.makeProcTableCurrent(&g.gl_context.procs);
-
     var projection_matrix = Mat4.orthographicProjection(
         g.render_data.game_camera.position.x - g.render_data.game_camera.dimensions.x / 2,
         g.render_data.game_camera.position.x + g.render_data.game_camera.dimensions.x / 2,
@@ -228,7 +214,6 @@ pub fn render(self: *Self) void {
 }
 
 pub fn clearScreen(self: *Self, screen_dimensions: Vec2) void {
-    gl.makeProcTableCurrent(&self.procs);
     gl.ClearColor(0.1, 0.1, 0.1, 1.0);
     gl.ClearDepth(0);
     gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

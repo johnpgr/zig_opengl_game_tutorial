@@ -160,3 +160,9 @@ pub const Mat4 = struct {
         return result;
     }
 };
+
+pub const OrthographicCamera2D = struct {
+    zoom: f32 = 1.0,
+    position: Vec2 = Vec2.init(0.0, 0.0),
+    dimensions: Vec2 = Vec2.init(0.0, 0.0),
+};

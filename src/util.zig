@@ -1,7 +1,7 @@
 const builtin = @import("builtin");
 const IVec2 = @import("math.zig").IVec2;
 const Vec2 = @import("math.zig").Vec2;
-const OrthographicCamera2d = @import("orthographic-camera-2d.zig");
+const OrthographicCamera2d = @import("math.zig").OrthographicCamera2D;
 const std = @import("std");
 const c = @import("c");
 

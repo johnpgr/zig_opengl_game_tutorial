@@ -42,7 +42,7 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyWindow(g.window);
 
-    const render_data = try RenderData.init(
+    g.render_data = try RenderData.init(
         persistent_storage_allocator,
         .{
             .x = @floatFromInt(global.WORLD_WIDTH),
@@ -53,10 +53,19 @@ pub fn main() !void {
 
     g.sdl_gl_context = try GLRenderer.initGLSDL(g.window);
     defer _ = c.SDL_GL_DestroyContext(g.sdl_gl_context);
+
+    if (!c.SDL_GL_MakeCurrent(g.window, g.sdl_gl_context)) {
+        std.debug.print(
+            "Failed to make OpenGL context current: {s}\n",
+            .{c.SDL_GetError()},
+        );
+        return error.ContextMakeCurrentFailed;
+    }
+
     g.gl_context = try GLRenderer.init(persistent_storage_allocator);
     defer g.gl_context.deinit();
 
-    const game_state = try GameState.init(persistent_storage_allocator);
+    g.game_state = try GameState.init(persistent_storage_allocator);
 
     const lib_path = comptime if (builtin.os.tag == .windows)
         "game.dll"
@@ -106,7 +115,7 @@ pub fn main() !void {
             }
         }
 
-        if (game_state.keyPressed(c.SDLK_R)) {
+        if (g.game_state.keyPressed(c.SDLK_R)) {
             should_reload = true;
             std.debug.print("Reloading library...\n", .{});
 
@@ -121,14 +130,14 @@ pub fn main() !void {
         }
 
         if (game_lib) |lib| {
-            lib.update_fn(game_state, render_data);
+            lib.update_fn(g.game_state, g.render_data);
         } else { 
             //TODO: Handle case where game library is not loaded
             @panic("Game library not loaded");
         }
 
-        game_state.updateMousePosition(render_data, game_state.screen_dimensions);
-        game_state.updateKeyState();
+        g.game_state.updateMousePosition(g.render_data, g.game_state.screen_dimensions);
+        g.game_state.updateKeyState();
         transient_storage.reset();
     }
 }

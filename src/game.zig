@@ -1,4 +1,5 @@
 const c = @import("c");
+const gl = @import("gl");
 const g = @import("global.zig");
 const global = @import("global.zig");
 const std = @import("std");
@@ -18,6 +19,7 @@ export fn deinit() callconv(.C) void {
 }
 
 export fn update(game_state_in: *GameState, render_data_in: *RenderData) callconv(.C) void {
+    gl.makeProcTableCurrent(&g.gl_context.procs);
     if(game_state_in != g.game_state) {
         g.game_state = game_state_in;
     }

@@ -2,8 +2,7 @@ const std = @import("std");
 const g = @import("global.zig");
 const Sprite = @import("assets.zig").Sprite;
 const SpriteID = @import("assets.zig").SpriteID;
-const OrthographicCamera2d = @import("orthographic-camera-2d.zig");
-const Transform = @import("transform.zig");
+const OrthographicCamera2d = @import("math.zig").OrthographicCamera2D;
 const Vec2 = @import("math.zig").Vec2;
 const IVec2 = @import("math.zig").IVec2;
 
@@ -65,3 +64,10 @@ pub fn addQuad(self: *Self, pos: Vec2, size: Vec2) !void {
     };
     try self.addTransform(transform);
 }
+
+pub const Transform = struct {
+    atlas_offset: IVec2 = IVec2.init(0, 0),
+    sprite_size: IVec2 = IVec2.init(0, 0),
+    pos: Vec2 = Vec2.init(0.0, 0.0),
+    size: Vec2 = Vec2.init(0.0, 0.0),
+};

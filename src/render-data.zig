@@ -23,7 +23,10 @@ pub fn init(
     var transforms = std.ArrayList(Transform).init(allocator);
     try transforms.ensureTotalCapacity(max_transforms);
 
-    self.* = Self{ .transforms = transforms };
+    self.* = Self{
+        .max_transforms = max_transforms,
+        .transforms = transforms,
+    };
     self.game_camera.dimensions = game_camera_dimensions;
 
     return self;

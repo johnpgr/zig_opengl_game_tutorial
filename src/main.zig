@@ -1,8 +1,7 @@
 const std = @import("std");
-const global = @import("global.zig");
 const builtin = @import("builtin");
 const c = @import("c");
-const g = @import("global.zig");
+const global = @import("global.zig");
 const util = @import("util.zig");
 const Game = @import("game.zig");
 const GameState = @import("game-state.zig");
@@ -10,6 +9,7 @@ const RenderData = @import("render-data.zig");
 const GLRenderer = @import("gl-renderer.zig");
 const GameLib = @import("lib.zig");
 const IVec2 = @import("math.zig").IVec2;
+const Context = global.Context;
 const mb = util.mb;
 
 pub fn main() !void {
@@ -31,7 +31,9 @@ pub fn main() !void {
     }
     defer c.SDL_Quit();
 
-    g.window = c.SDL_CreateWindow(
+    var ctx: Context = undefined;
+
+    ctx.window = c.SDL_CreateWindow(
         "Zig OpenGL Game",
         global.INITIAL_SCREEN_WIDTH,
         global.INITIAL_SCREEN_HEIGHT,
@@ -40,9 +42,9 @@ pub fn main() !void {
         std.debug.print("Failed to create window: {s}\n", .{c.SDL_GetError()});
         return error.WindowCreationError;
     };
-    defer c.SDL_DestroyWindow(g.window);
+    defer c.SDL_DestroyWindow(ctx.window);
 
-    g.render_data = try RenderData.init(
+    ctx.render_data = try RenderData.init(
         persistent_storage_allocator,
         .{
             .x = @floatFromInt(global.WORLD_WIDTH),
@@ -51,10 +53,10 @@ pub fn main() !void {
         1000,
     );
 
-    g.sdl_gl_context = try GLRenderer.initGLSDL(g.window);
-    defer _ = c.SDL_GL_DestroyContext(g.sdl_gl_context);
+    ctx.sdl_gl_context = try GLRenderer.initGLSDL(ctx.window);
+    defer _ = c.SDL_GL_DestroyContext(ctx.sdl_gl_context);
 
-    if (!c.SDL_GL_MakeCurrent(g.window, g.sdl_gl_context)) {
+    if (!c.SDL_GL_MakeCurrent(ctx.window, ctx.sdl_gl_context)) {
         std.debug.print(
             "Failed to make OpenGL context current: {s}\n",
             .{c.SDL_GetError()},
@@ -62,10 +64,10 @@ pub fn main() !void {
         return error.ContextMakeCurrentFailed;
     }
 
-    g.gl_context = try GLRenderer.init(persistent_storage_allocator);
-    defer g.gl_context.deinit();
+    ctx.gl_context = try GLRenderer.init(persistent_storage_allocator, ctx.render_data);
+    defer ctx.gl_context.deinit();
 
-    g.game_state = try GameState.init(persistent_storage_allocator);
+    ctx.game_state = try GameState.init(persistent_storage_allocator);
 
     const lib_path = comptime if (builtin.os.tag == .windows)
         "game.dll"
@@ -81,9 +83,9 @@ pub fn main() !void {
         lib.lib.close();
     };
 
-    _ = c.SDL_ShowWindow(g.window);
+    _ = c.SDL_ShowWindow(ctx.window);
 
-    while (g.game_state.running) {
+    while (ctx.game_state.running) {
         if (should_reload) {
             if (game_lib) |*lib| {
                 lib.deinit_fn();
@@ -105,17 +107,17 @@ pub fn main() !void {
         while (c.SDL_PollEvent(&event)) {
             switch (event.type) {
                 c.SDL_EVENT_QUIT => {
-                    g.game_state.running = false;
+                    ctx.game_state.running = false;
                 },
                 c.SDL_EVENT_WINDOW_RESIZED => {
-                    g.game_state.screen_dimensions.x = @floatFromInt(event.window.data1);
-                    g.game_state.screen_dimensions.y = @floatFromInt(event.window.data2);
+                    ctx.game_state.screen_dimensions.x = @floatFromInt(event.window.data1);
+                    ctx.game_state.screen_dimensions.y = @floatFromInt(event.window.data2);
                 },
                 else => {},
             }
         }
 
-        if (g.game_state.keyPressed(c.SDLK_R)) {
+        if (ctx.game_state.keyPressed(c.SDLK_R)) {
             should_reload = true;
             std.debug.print("Reloading library...\n", .{});
 
@@ -130,14 +132,14 @@ pub fn main() !void {
         }
 
         if (game_lib) |lib| {
-            lib.update_fn(g.game_state, g.render_data);
-        } else { 
+            lib.update_fn(&ctx);
+        } else {
             //TODO: Handle case where game library is not loaded
             @panic("Game library not loaded");
         }
 
-        g.game_state.updateMousePosition(g.render_data, g.game_state.screen_dimensions);
-        g.game_state.updateKeyState();
+        ctx.game_state.updateMousePosition(ctx.render_data, ctx.game_state.screen_dimensions);
+        ctx.game_state.updateKeyState();
         transient_storage.reset();
     }
 }

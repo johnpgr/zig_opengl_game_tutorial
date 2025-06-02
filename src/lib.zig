@@ -3,12 +3,13 @@ const util = @import("util.zig");
 const builtin = @import("builtin");
 const GameState = @import("game-state.zig");
 const RenderData = @import("render-data.zig");
+const Context = @import("global.zig").Context;
 
 const Self = @This();
 
 pub const InitFn = *const fn () callconv(.C) void;
 pub const DeinitFn = *const fn () callconv(.C) void;
-pub const UpdateFn = *const fn (game_state_in: *GameState, render_data_in: *RenderData) callconv(.C) void;
+pub const UpdateFn = *const fn (ctx: *Context) callconv(.C) void;
 
 lib: std.DynLib,
 path: []const u8,

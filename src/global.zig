@@ -15,8 +15,10 @@ pub const WORLD_GRID: IVec2 = .{
 };
 pub const NUM_KEYS = c.SDL_SCANCODE_COUNT;
 
-pub var window: *c.SDL_Window = undefined;
-pub var sdl_gl_context: c.SDL_GLContext = undefined;
-pub var gl_context: *GLContext = undefined;
-pub var render_data: *RenderData = undefined;
-pub var game_state: *GameState = undefined;
+pub const Context = struct {
+    window: *c.SDL_Window,
+    sdl_gl_context: c.SDL_GLContext,
+    gl_context: *GLContext,
+    render_data: *RenderData,
+    game_state: *GameState,
+};

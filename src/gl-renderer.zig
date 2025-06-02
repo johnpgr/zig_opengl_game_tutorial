@@ -1,5 +1,5 @@
 const std = @import("std");
-const g = @import("global.zig");
+const global = @import("global.zig");
 const c = @import("c");
 const gl = @import("gl");
 const builtin = @import("builtin");
@@ -11,6 +11,7 @@ const SpriteID = @import("assets.zig").SpriteID;
 const Vec2 = @import("math.zig").Vec2;
 const IVec2 = @import("math.zig").IVec2;
 const Mat4 = @import("math.zig").Mat4;
+const Context = global.Context;
 
 const Self = @This();
 
@@ -18,7 +19,7 @@ procs: gl.ProcTable = undefined,
 program_id: c_uint = 0,
 texture_id: c_uint = 0,
 vao: c_uint = 0,
-ubo: c_uint = 0,
+vbo: c_uint = 0,
 screen_size_id: c_int = 0,
 projection_matrix_id: c_int = 0,
 
@@ -54,12 +55,11 @@ pub fn initGLSDL(window: *c.SDL_Window) !c.SDL_GLContext {
         );
         return error.ContextCreationFailed;
     };
-    errdefer _ = c.SDL_GL_DestroyContext(g.sdl_gl_context);
 
     return gl_sdl_context;
 }
 
-pub fn init(allocator: std.mem.Allocator) !*Self {
+pub fn init(allocator: std.mem.Allocator, render_data: *RenderData) !*Self {
     const self = try allocator.create(Self);
 
     // Load OpenGL functions
@@ -109,6 +109,9 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
         );
         return error.LinkProgramFailed;
     }
+
+    gl.UseProgram(self.program_id);
+
     gl.DetachShader(self.program_id, vert_shader_id);
     gl.DetachShader(self.program_id, frag_shader_id);
     gl.DeleteShader(vert_shader_id);
@@ -118,8 +121,6 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
     errdefer gl.DeleteVertexArrays(1, (&self.vao)[0..1]);
 
     gl.BindVertexArray(self.vao);
-
-    gl.UseProgram(self.program_id);
 
     // Texture atlas
     const texture = try assets.loadTexture("TEXTURE_ATLAS.png");
@@ -149,20 +150,19 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
     );
     c.SDL_DestroySurface(texture);
 
-    // Transform UBO
+    // Transform buffer setup
     const ubo_idx = gl.GetUniformBlockIndex(self.program_id, "TransformUBO");
     if (ubo_idx == gl.INVALID_INDEX) {
         std.debug.print("Failed to get uniform block index for TransformUBO\n", .{});
         return error.TransformUBOIndexNotFound;
     }
     gl.UniformBlockBinding(self.program_id, ubo_idx, 0);
-    gl.GenBuffers(1, (&self.ubo)[0..1]);
-    gl.BindBuffer(gl.UNIFORM_BUFFER, self.ubo);
-    gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, self.ubo);
+    gl.GenBuffers(1, (&self.vbo)[0..1]);
+    gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, self.vbo);
     gl.BufferData(
         gl.UNIFORM_BUFFER,
-        @sizeOf(Transform) * @as(isize, @intCast(g.render_data.max_transforms)),
-        g.render_data.transforms.items.ptr,
+        @sizeOf(Transform) * @as(isize, @intCast(render_data.max_transforms)),
+        render_data.transforms.items.ptr,
         gl.DYNAMIC_DRAW,
     );
 
@@ -178,6 +178,8 @@ pub fn init(allocator: std.mem.Allocator) !*Self {
     gl.Disable(gl.MULTISAMPLE);
     gl.Enable(gl.DEPTH_TEST);
     gl.DepthFunc(gl.GREATER);
+    gl.Enable(gl.BLEND);
+    gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     return self;
 }
@@ -186,12 +188,12 @@ pub fn deinit(self: *Self) void {
     gl.DeleteProgram(self.program_id);
 }
 
-pub fn render(self: *Self) void {
+pub fn render(self: *Self, ctx: *Context) void {
     var projection_matrix = Mat4.orthographicProjection(
-        g.render_data.game_camera.position.x - g.render_data.game_camera.dimensions.x / 2,
-        g.render_data.game_camera.position.x + g.render_data.game_camera.dimensions.x / 2,
-        -g.render_data.game_camera.position.y - g.render_data.game_camera.dimensions.y / 2,
-        -g.render_data.game_camera.position.y + g.render_data.game_camera.dimensions.y / 2,
+        ctx.render_data.game_camera.position.x - ctx.render_data.game_camera.dimensions.x / 2,
+        ctx.render_data.game_camera.position.x + ctx.render_data.game_camera.dimensions.x / 2,
+        -ctx.render_data.game_camera.position.y - ctx.render_data.game_camera.dimensions.y / 2,
+        -ctx.render_data.game_camera.position.y + ctx.render_data.game_camera.dimensions.y / 2,
     );
     gl.UniformMatrix4fv(
         self.projection_matrix_id,
@@ -203,18 +205,20 @@ pub fn render(self: *Self) void {
     gl.BufferSubData(
         gl.UNIFORM_BUFFER,
         0,
-        @sizeOf(Transform) * @as(isize, @intCast(g.render_data.transforms.items.len)),
-        g.render_data.transforms.items.ptr,
+        @sizeOf(Transform) * @as(isize, @intCast(ctx.render_data.transforms.items.len)),
+        ctx.render_data.transforms.items.ptr,
     );
-    gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(g.render_data.transforms.items.len));
-    // Reset transform count for the next frame
-    g.render_data.clearTransforms();
 
-    _ = c.SDL_GL_SwapWindow(g.window);
+    if (ctx.render_data.transforms.items.len > 0) {
+        gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, @intCast(ctx.render_data.transforms.items.len));
+        ctx.render_data.clearTransforms();
+    }
+
+    _ = c.SDL_GL_SwapWindow(ctx.window);
 }
 
 pub fn clearScreen(self: *Self, screen_dimensions: Vec2) void {
-    gl.ClearColor(0.1, 0.1, 0.1, 1.0);
+    gl.ClearColor(0.4, 0.3, 0.6, 1.0);
     gl.ClearDepth(0);
     gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // Set the viewport to the current window size
@@ -248,8 +252,8 @@ fn glDebugCallback(
         return;
     }
 
-    if (severity == gl.DEBUG_SEVERITY_HIGH and
-        severity == gl.DEBUG_SEVERITY_MEDIUM and
+    if (severity == gl.DEBUG_SEVERITY_HIGH or
+        severity == gl.DEBUG_SEVERITY_MEDIUM or
         severity == gl.DEBUG_SEVERITY_LOW)
     {
         std.debug.print(
